@@ -30,6 +30,10 @@ def alarm_handler(alarm_queue, stop_event, record_cmd_queue=None):
         _cooldown_duration = 60.0
     _cooldown = _cooldown_duration
     _duration = _cooldown_duration
+    try:
+        _save_video = bool(_cfg.get("save_video", False))
+    except Exception:
+        _save_video = False
     _last_trigger_ts = 0.0
     _hit_streak = 0  # 连续命中计数
     logger = get_logger(__name__)
@@ -74,7 +78,7 @@ def alarm_handler(alarm_queue, stop_event, record_cmd_queue=None):
                 _hit_streak = 0
             _now = time.time()
             if (_hit_streak >= _required_hits) and (_now - _last_trigger_ts >= _cooldown):
-                if record_cmd_queue is not None:
+                if record_cmd_queue is not None and _save_video:
                     try:
                         # 发送带时长的开始录制指令，rtsp_processor 将据此录制指定时长
                         record_cmd_queue.put({"cmd": "start", "duration": _duration}, block=False)

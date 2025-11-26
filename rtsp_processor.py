@@ -21,17 +21,23 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
     pending_start = False
     pending_duration = float(clip_duration_sec)
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    # 预录缓冲：从配置读取缓冲时间（秒），默认0表示不启用
     try:
         _cfg = load_config()
     except Exception:
         _cfg = {}
     _rt = _cfg.get("record_trigger", {}) if isinstance(_cfg, dict) else {}
     try:
+        _save_video = bool(_cfg.get("save_video", False))
+    except Exception:
+        _save_video = False
+    try:
         _buffer_sec = float(_rt.get("record_buffer_sec", 0))
     except Exception:
         _buffer_sec = 0.0
-    _frame_buffer = deque()  # 存 (ts, frame)
+    _frame_buffer = deque() if (_save_video and _buffer_sec > 0) else None
+    if not _save_video:
+        logger.info("save_video=false，不会保存视频（不维护预录缓冲，忽略开始录制命令）")
+
     def _ensure_rtsp_tcp(url: str) -> str:
         try:
             if url.startswith("rtsp://") and "rtsp_transport=" not in url:
@@ -61,42 +67,75 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
         except Exception:
             return url
 
+    def _setup_ffmpeg_env():
+        os.environ.setdefault(
+            "OPENCV_FFMPEG_CAPTURE_OPTIONS",
+            "rtsp_transport;tcp|stimeout;5000000|rw_timeout;5000000"
+        )
+
+    def _open_capture(url: str):
+        try:
+            c = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+        except Exception:
+            c = None
+        if c is not None and c.isOpened():
+            try:
+                if hasattr(cv2, "CAP_PROP_READ_TIMEOUT_MSEC"):
+                    c.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5000)
+            except Exception:
+                pass
+            return c
+        if c is not None:
+            try:
+                c.release()
+            except Exception:
+                pass
+        return None
+
+    def _buffer_push(frame_buffer: deque, buffer_sec: float, now_ts: float, frame):
+        if frame_buffer is None or buffer_sec <= 0:
+            return
+        try:
+            frame_buffer.append((now_ts, frame.copy()))
+            while frame_buffer and (now_ts - frame_buffer[0][0] > buffer_sec):
+                frame_buffer.popleft()
+        except Exception:
+            if frame_buffer:
+                frame_buffer.popleft()
+
+    def _start_recording_and_preroll(out_dir: str, now_ts: float, frame_shape, original_fps: float,
+                                     writer_fourcc, preroll: deque, buffer_sec: float):
+        h, w = frame_shape[:2]
+        try:
+            rec_fps = float(original_fps)
+            if rec_fps <= 0:
+                rec_fps = 25.0
+        except Exception:
+            rec_fps = 25.0
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_path = os.path.join(out_dir, f"clip_{ts}.mp4")
+        _writer = cv2.VideoWriter(out_path, writer_fourcc, rec_fps, (w, h))
+        if _writer is None or not _writer.isOpened():
+            return None, out_path
+        if buffer_sec > 0 and preroll:
+            try:
+                for ts_buf, f_buf in list(preroll):
+                    if (now_ts - ts_buf) <= buffer_sec:
+                        try:
+                            _writer.write(f_buf)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+        return _writer, out_path
+
     while not stop_event.is_set():
         # 初始化或重连RTSP流
         if not cap or not cap.isOpened():
-            # 设置一次 FFmpeg 捕获选项，进一步约束超时（若外部未设置）
-            os.environ.setdefault(
-                "OPENCV_FFMPEG_CAPTURE_OPTIONS",
-                "rtsp_transport;tcp|stimeout;5000000|rw_timeout;5000000"
-            )
-
-            # 仅使用增强后的 URL + FFmpeg 后端
+            _setup_ffmpeg_env()
             robust_url = _augment_rtsp_url(rtsp_url)
-            attempts = [
-                (robust_url, cv2.CAP_FFMPEG, "ffmpeg_tcp"),
-            ]
-            cap = None
-            used_mode = None
-            for url, backend, mode in attempts:
-                try:
-                    c = cv2.VideoCapture(url) if backend is None else cv2.VideoCapture(url, backend)
-                except Exception:
-                    c = None
-                if c is not None and c.isOpened():
-                    # 打开后尽量设置读超时，避免长时间无数据卡住
-                    try:
-                        if hasattr(cv2, "CAP_PROP_READ_TIMEOUT_MSEC"):
-                            c.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5000)
-                    except Exception:
-                        pass
-                    cap = c
-                    used_mode = mode
-                    break
-                if c is not None:
-                    try:
-                        c.release()
-                    except Exception:
-                        pass
+            cap = _open_capture(robust_url)
+            used_mode = "ffmpeg_tcp"
             if not cap or not cap.isOpened():
                 logger.warning(f"无法连接RTSP流: {rtsp_url}，10秒后重试（已尝试 FFmpeg+TCP 及默认）...")
                 time.sleep(10)
@@ -116,7 +155,10 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
                     except Exception:
                         c = ""
                     if c == "start":
-                        pending_start = True
+                        if _save_video:
+                            pending_start = True
+                        else:
+                            logger.info("收到开始录制命令，但 save_video=false，已忽略")
                         try:
                             pending_duration = float(cmd.get("duration", clip_duration_sec))
                         except Exception:
@@ -140,49 +182,21 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
             continue
         
         now = time.time()
-        # 维护预录缓冲：按时间窗口保留最近 _buffer_sec 秒的帧
-        if _buffer_sec > 0:
-            try:
-                _frame_buffer.append((now, frame.copy()))
-                # 清理过期帧
-                while _frame_buffer and (now - _frame_buffer[0][0] > _buffer_sec):
-                    _frame_buffer.popleft()
-            except Exception:
-                # 内存不足时可适当丢弃
-                if _frame_buffer:
-                    _frame_buffer.popleft()
+        if _save_video and _buffer_sec > 0:
+            _buffer_push(_frame_buffer, _buffer_sec, now, frame)
 
         if pending_start:
             try:
                 os.makedirs(clip_dir, exist_ok=True)
-                h, w = frame.shape[:2]
-                # 录制使用原始流帧率
-                try:
-                    rec_fps = float(original_fps)
-                    if rec_fps <= 0:
-                        rec_fps = 25.0
-                except Exception:
-                    rec_fps = 25.0
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                out_path = os.path.join(clip_dir, f"clip_{ts}.mp4")
-                writer = cv2.VideoWriter(out_path, fourcc, rec_fps, (w, h))
+                writer, out_path = _start_recording_and_preroll(
+                    clip_dir, now, frame.shape, original_fps, fourcc, _frame_buffer, _buffer_sec
+                )
                 if writer is None or not writer.isOpened():
                     logger.error(f"启动录制失败: 无法打开输出文件 {out_path}")
                     writer = None
                 else:
                     recording_end_ts = now + float(pending_duration)
                     logger.info(f"开始录制: {out_path}，预计持续 {pending_duration} 秒")
-                    # 写入预录缓冲中的帧（时间在 _buffer_sec 窗口内的）
-                    if _buffer_sec > 0 and _frame_buffer:
-                        try:
-                            for ts_buf, f_buf in list(_frame_buffer):
-                                if (now - ts_buf) <= _buffer_sec:
-                                    try:
-                                        writer.write(f_buf)
-                                    except Exception:
-                                        pass
-                        except Exception:
-                            pass
             except Exception as e:
                 logger.exception(f"启动录制异常: {e}")
                 writer = None
