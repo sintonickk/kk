@@ -12,6 +12,17 @@
       "env": {
         "PYTHONUNBUFFERED": "1"
       }
+    },
+    {
+        "name": "Python: main_folder.py",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/main_folder.py",
+        "args": [
+            "C:\\Users\\yjq\\Documents\\WXWork\\1688856894758845\\WeDrive\\成都青瞳云栖智能科技有限公司\\成都青瞳云栖智能科技有限公司\\001-研发项目管理\\数据集\\燃气\\李志强收集\\李志强收集-道路施工铁皮围栏"
+        ],
+        "console": "integratedTerminal",
+        "justMyCode": true
     }
   ]
 }
