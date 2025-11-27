@@ -7,6 +7,9 @@ import cv2
 from datetime import datetime
 from logger_setup import get_logger
 from upload_detection import upload_numpy_image
+from concurrent.futures import ThreadPoolExecutor
+
+executor = ThreadPoolExecutor(max_workers=3)
 
 def alarm_handler(alarm_queue, stop_event, record_cmd_queue=None):
     """
@@ -89,7 +92,7 @@ def alarm_handler(alarm_queue, stop_event, record_cmd_queue=None):
             
             # 可扩展：发送HTTP请求、邮件、短信等
             # todo 获取位置以及类别，后续可能还会上传视频
-            upload_numpy_image(alarm_info.get("frame"), "施工场景")
+            executor.submit(upload_numpy_image, alarm_info.get("frame"), "施工场景")
             
         except queue.Empty:
             # 队列空时继续等待

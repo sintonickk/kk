@@ -1,5 +1,5 @@
 {
-    "rtsp_url": "rtsp://127.0.0.1:8554/test?rtsp_transport=tcp&stimeout=30000000",
+    "rtsp_url": "rtsp://192.168.31.222:8554/test?rtsp_transport=tcp&stimeout=30000000",
     "fps": 2,
     "frame_queue_size": 100,
     "alarm_queue_size": 200,

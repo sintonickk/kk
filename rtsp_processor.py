@@ -57,12 +57,11 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
                 return u if (k+"=") in u else (f"{u}{'&' if q or ('?' in u) else '?'}{k}={v}")
             u = url
             u = add_param(u, "rtsp_transport", "tcp")
-            u = add_param(u, "stimeout", "5000000")  # 连接/首包超时(微秒)
-            u = add_param(u, "rw_timeout", "5000000") # 读写超时(微秒)
-            u = add_param(u, "probesize", "32768")
-            u = add_param(u, "analyzeduration", "1000000")
-            u = add_param(u, "reorder_queue_size", "0")
-            u = add_param(u, "max_delay", "0")
+            u = add_param(u, "stimeout", "30000000")  # 增加到30秒
+            u = add_param(u, "rw_timeout", "30000000")  # 读写超时
+            u = add_param(u, "max_delay", "5000000")    # 最大延迟5秒
+            u = add_param(u, "fflags", "nobuffer")      # 减少缓冲
+            u = add_param(u, "flags", "low_delay")      # 低延迟模式
             return u
         except Exception:
             return url
@@ -70,7 +69,7 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
     def _setup_ffmpeg_env():
         os.environ.setdefault(
             "OPENCV_FFMPEG_CAPTURE_OPTIONS",
-            "rtsp_transport;tcp|stimeout;5000000|rw_timeout;5000000"
+            "rtsp_transport;tcp|stimeout;30000000|rw_timeout;30000000"
         )
 
     def _open_capture(url: str):
@@ -132,9 +131,10 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
     while not stop_event.is_set():
         # 初始化或重连RTSP流
         if not cap or not cap.isOpened():
-            _setup_ffmpeg_env()
+            # _setup_ffmpeg_env()
             robust_url = _augment_rtsp_url(rtsp_url)
             cap = _open_capture(robust_url)
+            # cap = _open_capture(rtsp_url)
             used_mode = "ffmpeg_tcp"
             if not cap or not cap.isOpened():
                 logger.warning(f"无法连接RTSP流: {rtsp_url}，10秒后重试（已尝试 FFmpeg+TCP 及默认）...")
@@ -223,7 +223,7 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
             # 放入队列（队列满时丢弃）
             try:
                 frame_queue.put(frame, block=True, timeout=1)
-                logger.info(f"帧放入队列，当前队列大小: {frame_queue.qsize()}")
+                logger.debug(f"帧放入队列，当前队列大小: {frame_queue.qsize()}")
             except queue.Full:
                 logger.warning("帧队列已满，丢弃当前帧")
         

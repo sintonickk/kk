@@ -13,6 +13,12 @@ def serve_frontend():
     """提供前端页面"""
     return send_from_directory('.', 'index.html')
 
+# 添加这个路由来处理根目录下的静态文件
+@app.route('/<path:filename>')
+def serve_static(filename):
+    """提供静态文件"""
+    return send_from_directory('.', filename)
+
 @app.route('/api/detections', methods=['GET'])
 def get_detections():
     """获取所有检测记录"""
