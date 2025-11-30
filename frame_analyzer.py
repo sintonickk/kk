@@ -36,7 +36,7 @@ def _extract_classification(results, names, logger):
                 try:
                     cls_id = int(getattr(probs, "top1"))
                     score = float(getattr(probs, "top1conf", probs.data.max().item()))
-                    logger.info(f"分类结果：{cls_id} {score}")
+                    logger.debug(f"分类结果：{cls_id} {score}")
                 except Exception:
                     import numpy as np
                     arr = getattr(probs, "data", None)

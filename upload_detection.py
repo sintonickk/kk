@@ -57,7 +57,7 @@ def upload_numpy_image(numpy_image, category="未知", location="未知位置"):
         result = response.json()
 
         if result.get('success'):
-            logger.info(f"检测结果上传成功，ID: {result.get('id')}")
+            logger.debug(f"检测结果上传成功，ID: {result.get('id')}")
             return True
         else:
             logger.error(f"上传失败: {result.get('error', '未知错误')}")
