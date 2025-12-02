@@ -2,6 +2,7 @@ import cv2
 import time
 import queue
 import os
+from pathlib import Path
 from datetime import datetime
 from logger_setup import get_logger
 from collections import deque
@@ -221,6 +222,16 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
 
             # 按间隔抽帧
             if frame_count % frame_interval == 0:
+                # 临时图片保存
+                _save_frame = _cfg.get("save_frame", False)
+                if _save_frame:
+                    try:
+                        infer_dir = Path(__file__).resolve().parent / "outputs" / "save_frames"
+                        infer_dir.mkdir(parents=True, exist_ok=True)
+                        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                        cv2.imwrite(str(infer_dir / f"{ts}.jpg"), frame)
+                    except Exception:
+                        pass
                 # 放入队列（队列满时丢弃）
                 try:
                     frame_queue.put(frame, block=True, timeout=1)
