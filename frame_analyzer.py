@@ -129,7 +129,9 @@ def frame_analyzer(frame_queue, alarm_queue, stop_event, trigger_threshold=100):
                 matched_payload = payload
             else:
                 tile_count = _cfg.get("tile_count", 4)
-                tiles_info = split_into_tiles(frame, tile_count, overlap=0.05)
+                start_top = _cfg.get("location_top", 0.0)
+                start_left = _cfg.get("location_left", 0.0)
+                tiles_info = split_into_tiles(frame, tile_count, overlap=0.05, start_top=start_top, start_left=start_left)
                 for tile, _ in tiles_info:
                     try:
                         results = model.predict(source=tile, imgsz=640, device=device, verbose=False)

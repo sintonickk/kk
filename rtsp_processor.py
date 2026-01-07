@@ -38,6 +38,14 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
     _frame_buffer = deque() if (_save_video and _buffer_sec > 0) else None
     if not _save_video:
         logger.info("save_video=false，不会保存视频（不维护预录缓冲，忽略开始录制命令）")
+    try:
+        _t_start = datetime.strptime(str(_cfg.get("time_start_check", ""))[:5], "%H:%M").time() if _cfg.get("time_start_check") else None
+    except Exception:
+        _t_start = None
+    try:
+        _t_end = datetime.strptime(str(_cfg.get("time_end_check", ""))[:5], "%H:%M").time() if _cfg.get("time_end_check") else None
+    except Exception:
+        _t_end = None
 
     def _ensure_rtsp_tcp(url: str) -> str:
         try:
@@ -222,6 +230,13 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
 
             # 按间隔抽帧
             if frame_count % frame_interval == 0:
+                allow_enqueue = True
+                if _t_start is not None and _t_end is not None:
+                    now_time = datetime.now().time()
+                    if _t_start <= _t_end:
+                        allow_enqueue = (_t_start <= now_time <= _t_end)
+                    else:
+                        allow_enqueue = (now_time >= _t_start) or (now_time <= _t_end)
                 # 临时图片保存
                 _save_frame = _cfg.get("save_frame", False)
                 if _save_frame:
@@ -233,11 +248,12 @@ def rtsp_processor(rtsp_url, frame_queue, stop_event, fps=2, resize_size=(640, 6
                     except Exception:
                         pass
                 # 放入队列（队列满时丢弃）
-                try:
-                    frame_queue.put(frame, block=True, timeout=1)
-                    logger.debug(f"帧放入队列，当前队列大小: {frame_queue.qsize()}")
-                except queue.Full:
-                    logger.warning("帧队列已满，丢弃当前帧")
+                if allow_enqueue:
+                    try:
+                        frame_queue.put(frame, block=True, timeout=1)
+                        logger.debug(f"帧放入队列，当前队列大小: {frame_queue.qsize()}")
+                    except queue.Full:
+                        logger.warning("帧队列已满，丢弃当前帧")
             
             frame_count += 1
             # 检查退出信号（避免阻塞在read()时无法退出）
