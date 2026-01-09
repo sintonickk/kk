@@ -1,0 +1,12 @@
+{
+  "fps": 2,
+  "output_format": "jpg",
+  "filename_pattern": "{stream_index}_{datetime}_{timestamp_ms}.jpg",
+  "reconnect_interval_sec": 5,
+  "max_retries": 0,
+  "output_dir": "D:/kk/output/frames",
+  "rtsp": [
+    "rtsp://127.0.0.1:8554/test",
+    "rtsp://127.0.0.1:8555/test"
+  ]
+}

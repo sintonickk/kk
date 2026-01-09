@@ -1,0 +1,41 @@
+{
+  "global": {
+    "decode_backend": "ffmpeg",
+    "fps_cap": 15,
+    "queue_size": 4,
+    "drop_policy": "drop_old",
+    "rtsp": {
+      "transport": "tcp",
+      "stimeout_ms": 3000,
+      "max_delay_ms": 0,
+      "fifo_size": 1024
+    },
+    "inference": {
+      "framework": "pytorch",
+      "input_size": [960, 540],
+      "max_batch_size": 4,
+      "batch_window_ms": 8,
+      "warmup_iters": 5
+    },
+    "weights_path": "d:/path/to/best.pt",
+    "conf_threshold": 0.25,
+    "target_classes": [],
+    "device": "cpu",
+    "tile_count": 4,
+    "backend_base_url": "http://127.0.0.1:5000",
+    "save_video": false,
+    "save_frame": false,
+    "save_pic": true,
+    "record_trigger": {
+      "required_hits": 1,
+      "duration_sec": 30,
+      "record_buffer_sec": 5
+    }
+  },
+  "streams": [
+    { "name": "cam1", "rtsp_url": "rtsp://user:pass@host1/stream", "fps_cap": 12 },
+    { "name": "cam2", "rtsp_url": "rtsp://user:pass@host2/stream" },
+    { "name": "cam3", "rtsp_url": "rtsp://user:pass@host3/stream" },
+    { "name": "cam4", "rtsp_url": "rtsp://user:pass@host4/stream" }
+  ]
+}

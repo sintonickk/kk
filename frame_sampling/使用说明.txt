@@ -1,0 +1,6 @@
+1、修改配置：
+    fps--每秒抽取帧数
+    output_dir--图片保存路径
+    rtsp--rtsp流地址，支持多个，注意格式哦！
+2、修改run_linux.sh权限：chmod +x run_linux.sh
+3、运行程序：./run_linux.sh
