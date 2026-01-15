@@ -12,6 +12,12 @@ try:
 except Exception:
     YOLO = None
 
+# todo 需要完成从GPS获取定位信息
+def _get_gps_location():
+    longitude = float(0.0000000)
+    latitude = float(0.0000000)
+    return longitude, latitude
+
 def _is_match(classification, conf_threshold, target_classes):
     try:
         if classification is None:
@@ -114,6 +120,7 @@ def frame_analyzer(frame_queue, alarm_queue, stop_event, trigger_threshold=100):
             except Exception:
                 results_full = None
             cls_full = _extract_classification(results_full, names, logger)
+            longitude, latitude = _get_gps_location()
             if _is_match(cls_full, conf_threshold, target_classes):
                 alarm_info = {
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -123,6 +130,8 @@ def frame_analyzer(frame_queue, alarm_queue, stop_event, trigger_threshold=100):
                     "details": "classification",
                     "frame_shape": frame.shape,
                     "saved_path": None,
+                    "longitude": longitude,
+                    "latitude": latitude,
                 }
                 payload = alarm_info.copy()
                 payload["frame"] = frame
@@ -148,6 +157,8 @@ def frame_analyzer(frame_queue, alarm_queue, stop_event, trigger_threshold=100):
                         "details": "classification",
                         "frame_shape": frame.shape,
                         "saved_path": None,
+                        "longitude": longitude,
+                        "latitude": latitude,
                     }
                     payload = alarm_info.copy()
                     payload["frame"] = frame

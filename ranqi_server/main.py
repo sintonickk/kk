@@ -5,6 +5,7 @@ from frame_analyzer import frame_analyzer
 from alarm_handler import alarm_handler
 from config_manager import load_config
 from logger_setup import get_logger
+from manager_client import run_config_listener
 
 def main():
     logger = get_logger(__name__)
@@ -48,6 +49,21 @@ def main():
     rtsp_thread.start()
     analyzer_thread.start()
     alarm_thread.start()
+    # 启动本地配置监听服务（REST），端口从配置 listen_port 读取
+    try:
+        listen_port = int(cfg.get("listen_port", 9000))
+    except Exception:
+        listen_port = 9000
+    try:
+        listener_thread = threading.Thread(
+            target=run_config_listener,
+            kwargs={"host": "0.0.0.0", "port": listen_port, "log_level": "info"},
+            daemon=True,
+        )
+        listener_thread.start()
+        logger.info(f"配置监听服务已启动，端口: {listen_port}")
+    except Exception as e:
+        logger.exception(f"配置监听服务启动失败: {e}")
     logger.info("所有模块启动完成，按Ctrl+C退出")
     
     try:

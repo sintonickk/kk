@@ -8,8 +8,14 @@ from datetime import datetime
 from logger_setup import get_logger
 from upload_detection import upload_numpy_image
 from concurrent.futures import ThreadPoolExecutor
+import requests
+import socket
+from manager_client import send_alarm
+from net_utils import get_local_ip
 
 executor = ThreadPoolExecutor(max_workers=3)
+
+LOCAL_IP = get_local_ip()
 
 def alarm_handler(alarm_queue, stop_event, record_cmd_queue=None):
     """
@@ -20,6 +26,7 @@ def alarm_handler(alarm_queue, stop_event, record_cmd_queue=None):
     except Exception:
         _cfg = {}
     _rt = _cfg.get("record_trigger", {}) if isinstance(_cfg, dict) else {}
+    manager_base_url = _cfg.get("manager_base_url", "http://127.0.0.1:8000") if isinstance(_cfg, dict) else "http://127.0.0.1:8000"
     try:
         _required_hits = int(_rt.get("required_hits", 1))
     except Exception:
@@ -90,10 +97,9 @@ def alarm_handler(alarm_queue, stop_event, record_cmd_queue=None):
                     except Exception:
                         pass
             
-            # 可扩展：发送HTTP请求、邮件、短信等
-            # todo 获取位置以及类别，后续可能还会上传视频
-            executor.submit(upload_numpy_image, alarm_info.get("frame"), "施工场景")
-            
+            # executor.submit(upload_numpy_image, alarm_info.get("frame"), "施工场景")
+            executor.submit(send_alarm, alarm_info, alarm_info.get("frame"), LOCAL_IP, manager_base_url)
+
         except queue.Empty:
             # 队列空时继续等待
             continue

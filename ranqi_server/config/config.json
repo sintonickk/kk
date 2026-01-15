@@ -1,25 +1,32 @@
 {
-    "rtsp_url": "rtsp://192.168.31.222:8554/test?rtsp_transport=tcp&stimeout=30000000",
-    "fps": 2,
-    "frame_queue_size": 100,
-    "alarm_queue_size": 200,
-    "conf_threshold": 0.8,
-    "tile_count": 4,
-    "location_top": 0.0,
-    "location_left": 0.0,
-    "time_start_check": "09:00",
-    "time_end_check": "18:00",
-    "device": "cpu",
-    "save_frame": false,
-    "save_pic": true,
-    "save_video": true,
-    "backend_base_url": "http://127.0.0.1:5000",
-    "target_classes": ["has_build"],
-    "record_trigger": {
-        "required_hits": 1,
-        "types": ["has_build", "no_build"],
-        "duration_sec": 10,
-        "record_buffer_sec": 5
-    },
-    "weights_path": "D:\\kk\\code\\kk\\train_output\\yolos_cls_640_best_92.8.pt"
+  "rtsp_url": "rtsp://192.168.31.222:8554/test?rtsp_transport=tcp&stimeout=30000000",
+  "fps": 2,
+  "frame_queue_size": 100,
+  "alarm_queue_size": 200,
+  "conf_threshold": 0.8,
+  "tile_count": 4,
+  "location_top": 0,
+  "location_left": 0,
+  "time_start_check": "09:00",
+  "time_end_check": "18:00",
+  "device": "cpu",
+  "save_frame": false,
+  "save_pic": true,
+  "save_video": true,
+  "listen_port": 9527,
+  "manager_base_url": "http://127.0.0.1:8001",
+  "backend_base_url": "http://127.0.0.1:5000",
+  "target_classes": [
+    "has_build"
+  ],
+  "record_trigger": {
+    "required_hits": 1,
+    "types": [
+      "has_build",
+      "no_build"
+    ],
+    "duration_sec": 10,
+    "record_buffer_sec": 5
+  },
+  "weights_path": "D:\\kk\\code\\kk\\train_output\\yolos_cls_640_best_92.8.pt"
 }
