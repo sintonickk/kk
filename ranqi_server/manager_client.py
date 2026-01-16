@@ -113,6 +113,10 @@ def get_app() -> "FastAPI":
     if _app is None:
         _app = FastAPI(title="Ranqi Manager Client", version="0.1.0")
 
+        @_app.get("/health")
+        def health():
+            return {"status": "ok"}
+
         @_app.get("/api/v1/client/config")
         def get_config():
             try:

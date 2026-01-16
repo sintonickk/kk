@@ -60,7 +60,8 @@ class AlarmInfo(Base):
     process_feedback = Column(Text, nullable=True)
     image_url = Column(String(1024), nullable=False)
     device_ip = Column(String(15), ForeignKey("t_device.device_ip", onupdate="CASCADE", ondelete="RESTRICT"), nullable=False)
-    user_id = Column(Integer, ForeignKey("t_user.user_id", onupdate="CASCADE", ondelete="SET NULL"), nullable=True)
+    # align with existing DB: use user_code (string) instead of user_id
+    user_code = Column(String(64), ForeignKey("t_user.user_code", onupdate="CASCADE", ondelete="SET NULL"), nullable=True)
     create_time = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     update_time = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

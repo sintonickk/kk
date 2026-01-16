@@ -34,6 +34,8 @@ class Settings:
         server = data.get("server", {})
         self.server_host = server.get("host", "0.0.0.0")
         self.server_port = int(server.get("port", 8001))
+        self.device_listen_port = int(server.get("device_listen_port", 9000))
+        self.device_refresh_time = int(server.get("device_refresh_time", 180))
         self.save_path = server.get("save_path", "./uploads")
 
         # compute absolute upload directory

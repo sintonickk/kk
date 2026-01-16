@@ -112,15 +112,30 @@ def update_alarm_process(
 @router.get("/stats/today-hourly")
 def stats_today_hourly(db: Session = Depends(get_db), request: Request = None):
     rows = crud.stats_today_hourly(db)
-    # format as list of {"time": "HH:00", "count": n}
-    result = []
+    # Build a map: hour (0-23) -> count
+    counts_by_hour: dict[int, int] = {}
     for hour_dt, cnt in rows:
-        # hour_dt from PG may be datetime; format to HH:MM
+        h = None
         try:
-            label = hour_dt.strftime("%H:00")
+            # hour_dt likely a datetime
+            h = int(getattr(hour_dt, "hour"))
         except Exception:
-            label = str(hour_dt)
-        result.append({"time": label, "count": int(cnt)})
+            h = None
+        if h is None:
+            # fallback: try to parse from string like '2026-01-16 10:00:00'
+            try:
+                s = str(hour_dt)
+                # find HH at positions 11-13 or 0-2 if only hour
+                if len(s) >= 13 and s[11:13].isdigit():
+                    h = int(s[11:13])
+                elif len(s) >= 2 and s[0:2].isdigit():
+                    h = int(s[0:2])
+            except Exception:
+                h = None
+        if h is not None and 0 <= h <= 23:
+            counts_by_hour[h] = int(cnt)
+    # Produce full 24 hours
+    result = [{"time": f"{h:02d}:00", "count": counts_by_hour.get(h, 0)} for h in range(0, 24)]
     return result
 
 

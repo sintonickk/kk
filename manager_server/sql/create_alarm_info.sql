@@ -10,7 +10,7 @@ CREATE TABLE t_alarm_info (
     alarm_type VARCHAR(64) NOT NULL,
     confidence FLOAT,
     process_opinion TEXT,
-    process_person INTEGER,  -- 处理人员ID
+    process_person INTEGER,  -- 处理人员ID工号
     process_status alarm_process_status NOT NULL DEFAULT 'unprocessed',
     process_feedback TEXT,
     image_url VARCHAR(1024) NOT NULL,

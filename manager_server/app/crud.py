@@ -65,6 +65,7 @@ def update_alarm_process(db: Session, alarm_id: int, body: schemas.AlarmProcessU
     alarm = db.get(models.AlarmInfo, alarm_id)
     if not alarm:
         return None
+    # apply updates from body
     if body.process_status is not None:
         alarm.process_status = body.process_status
     if body.process_opinion is not None:
@@ -73,7 +74,16 @@ def update_alarm_process(db: Session, alarm_id: int, body: schemas.AlarmProcessU
         alarm.process_feedback = body.process_feedback
     if body.process_person is not None:
         alarm.process_person = body.process_person
-    # If header user_code is provided, update it onto the alarm record
+    elif header_user_code:
+        # default process_person using header_user_code mapped to user_id
+        try:
+            stmt = select(models.User).where(models.User.user_code == header_user_code)
+            user = db.execute(stmt).scalars().first()
+            if user is not None:
+                alarm.process_person = int(getattr(user, "user_id"))
+        except Exception:
+            pass
+    # persist header user_code onto the alarm record if provided
     if header_user_code:
         alarm.user_code = header_user_code
     db.add(alarm)
