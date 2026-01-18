@@ -1,21 +1,39 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from typing import Optional
 
 from ..database import get_db
 from .. import schemas, crud, models
+from ..config import get_settings
+from ..auth import encode_jwt
+import time
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"]) 
 
 
 @router.post("/login", response_model=schemas.LoginResponse)
-def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
+def login(body: schemas.LoginRequest, db: Session = Depends(get_db), response: Response = None):
     user = crud.verify_login(db, body.user_account, body.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if user.status == "disabled":
         raise HTTPException(status_code=403, detail="User disabled")
-    return schemas.LoginResponse(
+    # build JWT (HS256)
+    settings = get_settings()
+    now = int(time.time())
+    payload = {
+        "sub": str(user.user_id),
+        "user_code": user.user_code,
+        "user_account": user.user_account,
+        "iat": now,
+        "exp": now + 2 * 60 * 60,  # 2 hours
+        "iss": "manager_server",
+    }
+    token = encode_jwt(payload, settings.jwt_secret)
+    if response is not None:
+        response.headers["Authorization"] = f"Bearer {token}"
+    # extend body with authorization for convenience
+    resp = schemas.LoginResponse(
         user_id=user.user_id,
         user_code=user.user_code,
         user_name=user.user_name,
@@ -23,6 +41,13 @@ def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
         user_role=user.user_role,
         status=user.status,
     )
+    # mypy ignore: add attribute dynamically for convenience
+    try:
+        resp_dict = resp.dict()
+        resp_dict["authorization"] = f"Bearer {token}"
+        return resp_dict
+    except Exception:
+        return resp
 
 
 @router.post("", response_model=schemas.UserRead)

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
 import os
@@ -101,6 +102,20 @@ def update_route(
     if new_rel_path and old and old.route_file_path and old.route_file_path != new_rel_path:
         _remove_files([old.route_file_path])
     return item
+
+
+@router.get("/{route_id}/download")
+def download_route(route_id: int, db: Session = Depends(get_db)):
+    item = crud.get_route(db, route_id)
+    if not item or not item.route_file_path:
+        raise HTTPException(status_code=404, detail="Route not found")
+    abs_path = os.path.normpath(os.path.join(settings.upload_dir, item.route_file_path))
+    if not os.path.exists(abs_path):
+        raise HTTPException(status_code=404, detail="Route file missing")
+    # derive a friendly filename
+    _, ext = os.path.splitext(abs_path)
+    download_name = f"{item.route_name}{ext or ''}"
+    return FileResponse(abs_path, media_type="application/octet-stream", filename=download_name)
 
 
 @router.delete("/{route_id}")

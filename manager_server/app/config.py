@@ -36,6 +36,8 @@ class Settings:
         self.server_port = int(server.get("port", 8001))
         self.device_listen_port = int(server.get("device_listen_port", 9000))
         self.device_refresh_time = int(server.get("device_refresh_time", 180))
+        # JWT secret for HS256
+        self.jwt_secret = server.get("jwt_secret", "CHANGE_ME_SECRET")
         self.save_path = server.get("save_path", "./uploads")
 
         # compute absolute upload directory
