@@ -55,9 +55,10 @@ class AlarmInfo(Base):
     alarm_type = Column(String(64), nullable=False, index=True)
     confidence = Column(Float, nullable=True)
     process_opinion = Column(Text, nullable=True)
-    process_person = Column(Integer, nullable=True)
+    process_opinion_person = Column(Integer, nullable=True)
     process_status = Column(alarm_process_status_enum, nullable=False, server_default="unprocessed")
     process_feedback = Column(Text, nullable=True)
+    process_feedback_person = Column(Integer, nullable=True)
     image_url = Column(String(1024), nullable=False)
     device_ip = Column(String(15), ForeignKey("t_device.device_ip", onupdate="CASCADE", ondelete="RESTRICT"), nullable=False)
     # align with existing DB: use user_code (string) instead of user_id

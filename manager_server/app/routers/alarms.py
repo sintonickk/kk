@@ -91,6 +91,30 @@ def list_alarms(
     items = crud.query_alarms(db, st, et, alarm_type, process_status, user_code, skip, min(limit, 200))
     return items
 
+@router.get("/by-process-status", response_model=List[schemas.AlarmRead])
+def list_alarms_by_process_status(
+    process_status: str = "unprocessed",
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    """
+    List alarms by process status.
+    process_status: unprocessed, processing, closed, ignore
+    """
+    # prefer header user_code over query param
+    try:
+        header_uc = getattr(getattr(request, "state", None), "auth", {}).get("user_code") if request else None
+        if header_uc:
+            user_code = header_uc
+    except Exception:
+        pass
+
+    items = crud.query_alarms_by_process_status(db, user_code, process_status, skip, min(limit, 200))
+    return items
+
+
 @router.put("/{alarm_id}/process", response_model=schemas.AlarmRead)
 def update_alarm_process(
     alarm_id: int,

@@ -16,9 +16,10 @@ def create_alarm(db: Session, alarm: schemas.AlarmCreate, image_url: Optional[st
         alarm_type=alarm.alarm_type,
         confidence=alarm.confidence,
         process_opinion=alarm.process_opinion,
-        process_person=alarm.process_person,
+        process_opinion_person=alarm.process_opinion_person,
         process_status=alarm.process_status,
         process_feedback=alarm.process_feedback,
+        process_feedback_person=alarm.process_feedback_person,
         image_url=image_url,
         device_ip=alarm.device_ip,
         user_code=alarm.user_code,
@@ -53,10 +54,17 @@ def query_alarms(
         conditions.append(models.AlarmInfo.alarm_type == alarm_type)
     if process_status:
         conditions.append(models.AlarmInfo.process_status == process_status)
-    if user_code:
-        conditions.append(models.AlarmInfo.user_code == user_code)
+    # if user_code:
+    #     conditions.append(models.AlarmInfo.user_code == user_code)
     if conditions:
         stmt = stmt.where(and_(*conditions))
+    stmt = stmt.order_by(models.AlarmInfo.alarm_time.desc()).offset(skip).limit(limit)
+    return list(db.execute(stmt).scalars().all())
+
+def query_alarms_by_process_status(db: Session, user_code: Optional[str], process_status: Optional[str], skip: int, limit: int) -> List[models.AlarmInfo]:
+    stmt = select(models.AlarmInfo).where(models.AlarmInfo.process_status == process_status)
+    if user_code:
+        stmt = stmt.where(models.AlarmInfo.user_code == user_code)
     stmt = stmt.order_by(models.AlarmInfo.alarm_time.desc()).offset(skip).limit(limit)
     return list(db.execute(stmt).scalars().all())
 
@@ -70,19 +78,30 @@ def update_alarm_process(db: Session, alarm_id: int, body: schemas.AlarmProcessU
         alarm.process_status = body.process_status
     if body.process_opinion is not None:
         alarm.process_opinion = body.process_opinion
+        # default opinion person from header if not set explicitly
+        if body.process_opinion_person is not None:
+            alarm.process_opinion_person = body.process_opinion_person
+        elif header_user_code and not alarm.process_opinion_person:
+            try:
+                stmt = select(models.User).where(models.User.user_code == header_user_code)
+                user = db.execute(stmt).scalars().first()
+                if user is not None:
+                    alarm.process_opinion_person = int(getattr(user, "user_id"))
+            except Exception:
+                pass
     if body.process_feedback is not None:
         alarm.process_feedback = body.process_feedback
-    if body.process_person is not None:
-        alarm.process_person = body.process_person
-    elif header_user_code:
-        # default process_person using header_user_code mapped to user_id
-        try:
-            stmt = select(models.User).where(models.User.user_code == header_user_code)
-            user = db.execute(stmt).scalars().first()
-            if user is not None:
-                alarm.process_person = int(getattr(user, "user_id"))
-        except Exception:
-            pass
+        # default feedback person from header if not set explicitly
+        if body.process_feedback_person is not None:
+            alarm.process_feedback_person = body.process_feedback_person
+        elif header_user_code and not alarm.process_feedback_person:
+            try:
+                stmt = select(models.User).where(models.User.user_code == header_user_code)
+                user = db.execute(stmt).scalars().first()
+                if user is not None:
+                    alarm.process_feedback_person = int(getattr(user, "user_id"))
+            except Exception:
+                pass
     # persist header user_code onto the alarm record if provided
     if header_user_code:
         alarm.user_code = header_user_code
@@ -293,6 +312,13 @@ def delete_user(db: Session, user_id: int) -> bool:
     db.delete(user)
     db.commit()
     return True
+
+
+# Lightweight list of all users (id and code and name)
+def get_all_users(db: Session) -> List[dict]:
+    stmt = select(models.User.user_id, models.User.user_code, models.User.user_name).order_by(models.User.user_id.asc())
+    rows = db.execute(stmt).all()
+    return [{"user_id": r[0], "user_code": r[1], "user_name": r[2]} for r in rows]
 
 
 # Helpers for user_code generation

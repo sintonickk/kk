@@ -44,9 +44,10 @@ class AlarmCreate(BaseModel):
     alarm_type: str = Field(max_length=64)
     confidence: Optional[float] = None
     process_opinion: Optional[str] = None
-    process_person: Optional[int] = None
+    process_opinion_person: Optional[int] = None
     process_status: Optional[Literal["unprocessed", "processing", "closed", "ignore"]] = "unprocessed"
     process_feedback: Optional[str] = None
+    process_feedback_person: Optional[int] = None
     device_ip: str
     user_code: Optional[str] = None
     image_url: Optional[str]
@@ -60,9 +61,10 @@ class AlarmRead(BaseModel):
     alarm_type: str
     confidence: Optional[float]
     process_opinion: Optional[str]
-    process_person: Optional[int]
+    process_opinion_person: Optional[int]
     process_status: Literal["unprocessed", "processing", "closed", "ignore"]
     process_feedback: Optional[str]
+    process_feedback_person: Optional[int]
     image_url: Optional[str]
     device_ip: str
     user_code: Optional[str]
@@ -87,7 +89,8 @@ class AlarmProcessUpdate(BaseModel):
     process_status: Optional[Literal["unprocessed", "processing", "closed", "ignore"]] = None
     process_opinion: Optional[str] = None
     process_feedback: Optional[str] = None
-    process_person: Optional[int] = None
+    process_opinion_person: Optional[int] = None
+    process_feedback_person: Optional[int] = None
 
 
 class ConfigItem(BaseModel):
@@ -112,6 +115,12 @@ class UserCreate(BaseModel):
     user_dept: Optional[str] = Field(default=None, max_length=64)
     status: Optional[Literal["enabled", "disabled"]] = "enabled"
     ext_info: Optional[Any] = None
+
+
+class UsersBaseInfo(BaseModel):
+    user_id: int
+    user_code: str
+    user_name: str
 
 
 class UserRead(BaseModel):

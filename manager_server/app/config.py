@@ -39,6 +39,8 @@ class Settings:
         # JWT secret for HS256
         self.jwt_secret = server.get("jwt_secret", "CHANGE_ME_SECRET")
         self.save_path = server.get("save_path", "./uploads")
+        # Optional routes file for temporary GPS data source
+        self.routes_file = server.get("routes_file", None)
 
         # compute absolute upload directory
         if os.path.isabs(self.save_path):

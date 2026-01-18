@@ -73,6 +73,52 @@ def get_route(route_id: int, db: Session = Depends(get_db)):
     return item
 
 
+# todo 目前使用本地临时文件，后面使用上传的路线文件根据id获取
+@router.get("/{route_id}/gps")
+def get_route_gps(route_id: int):
+    """Return GPS coordinates array [ [lon, lat], ... ] for the given route_id.
+    Data is temporarily loaded from settings.routes_file (JSON).
+    """
+    if not settings.routes_file:
+        raise HTTPException(status_code=500, detail="routes_file not configured")
+    json_path = settings.routes_file
+    if not os.path.exists(json_path):
+        raise HTTPException(status_code=404, detail="routes_file not found")
+    try:
+        import json
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"failed to read routes_file: {e}")
+    # Expected structure examples:
+    # { "123": [[lon, lat], ...], "124": [...] }
+    # or { "routes": { "123": [...] } }
+    coords = None
+    if isinstance(data, dict):
+        key = str(route_id)
+        if key in data and isinstance(data[key], list):
+            coords = data[key]
+        elif "routes" in data and isinstance(data["routes"], dict) and key in data["routes"]:
+            coords = data["routes"][key]
+    if not coords:
+        raise HTTPException(status_code=404, detail="route_id not found in routes_file")
+    # Normalize: ensure list of [lon, lat] float pairs
+    norm = []
+    try:
+        for item in coords:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                lon = float(item[0])
+                lat = float(item[1])
+                norm.append([lon, lat])
+            elif isinstance(item, dict) and "lon" in item and "lat" in item:
+                lon = float(item["lon"])  # type: ignore[index]
+                lat = float(item["lat"])  # type: ignore[index]
+                norm.append([lon, lat])
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid coordinates format in routes_file")
+    return norm
+
+
 @router.put("/{route_id}", response_model=schemas.RouteRead)
 def update_route(
     route_id: int,

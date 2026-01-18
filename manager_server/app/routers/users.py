@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 
 from ..database import get_db
 from .. import schemas, crud, models
@@ -49,6 +49,14 @@ def login(body: schemas.LoginRequest, db: Session = Depends(get_db), response: R
     except Exception:
         return resp
 
+
+@router.get("/all_users", response_model=List[schemas.UsersBaseInfo])
+def get_all_users(db: Session = Depends(get_db)):
+    """
+    获取所有用户的基本信息
+    """
+    users = crud.get_all_users(db)
+    return users
 
 @router.post("", response_model=schemas.UserRead)
 def create_user(body: schemas.UserCreate, db: Session = Depends(get_db)):
