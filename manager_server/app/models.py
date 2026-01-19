@@ -60,6 +60,7 @@ class AlarmInfo(Base):
     process_feedback = Column(Text, nullable=True)
     process_feedback_person = Column(Integer, nullable=True)
     image_url = Column(String(1024), nullable=False)
+    image_hash = Column(String(64), nullable=False)
     device_ip = Column(String(15), ForeignKey("t_device.device_ip", onupdate="CASCADE", ondelete="RESTRICT"), nullable=False)
     # align with existing DB: use user_code (string) instead of user_id
     user_code = Column(String(64), ForeignKey("t_user.user_code", onupdate="CASCADE", ondelete="SET NULL"), nullable=True)

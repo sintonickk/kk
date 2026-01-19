@@ -51,6 +51,7 @@ class AlarmCreate(BaseModel):
     device_ip: str
     user_code: Optional[str] = None
     image_url: Optional[str]
+    image_hash: str
 
 
 class AlarmRead(BaseModel):
@@ -66,6 +67,7 @@ class AlarmRead(BaseModel):
     process_feedback: Optional[str]
     process_feedback_person: Optional[int]
     image_url: Optional[str]
+    image_hash: str
     device_ip: str
     user_code: Optional[str]
     create_time: datetime

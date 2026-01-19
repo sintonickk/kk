@@ -15,6 +15,7 @@ CREATE TABLE t_alarm_info (
     process_feedback TEXT,
     process_feedback_person INTEGER,  -- 反馈人员ID工号
     image_url VARCHAR(1024) NOT NULL,
+    image_hash VARCHAR(64) NOT NULL,
     device_ip VARCHAR(15) NOT NULL,
     user_code VARCHAR(64),  -- 允许为空（如报警暂未分配给用户时）
     create_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -40,7 +41,7 @@ COMMENT ON COLUMN t_alarm_info.process_status IS '处理状态';
 COMMENT ON COLUMN t_alarm_info.process_feedback IS '处理结果反馈';
 COMMENT ON COLUMN t_alarm_info.process_feedback_person IS '反馈人员姓名/工号';
 COMMENT ON COLUMN t_alarm_info.image_url IS '报警相关图片地址（多个地址用逗号分隔）';
-COMMENT ON COLUMN t_alarm_info.device_ip IS '报警设备IP地址';
+COMMENT ON COLUMN t_alarm_info.image_hash IS '报警图片的哈希值';
 COMMENT ON COLUMN t_alarm_info.user_code IS '关联的用户编号（处理该报警的用户）';
 COMMENT ON COLUMN t_alarm_info.create_time IS '报警记录创建时间';
 COMMENT ON COLUMN t_alarm_info.update_time IS '报警记录更新时间';

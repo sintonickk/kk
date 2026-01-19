@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 import os
 import uuid
+import hashlib
 
 from ..database import get_db
 from ..config import get_settings
@@ -29,14 +30,24 @@ async def create_alarm(
     image: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    #todo 需要加上去重的处理
+    """
+    创建报警记录
+    时间格式：ISO8601字符串，例：2025-10-15T10:30:00+08:00
+    """
+    # todo: 需要加上去重的处理
     image_url: Optional[str] = None
+    image_hash: Optional[str] = None
     if image is not None:
         ext = os.path.splitext(image.filename)[1] or ".bin"
         file_name = f"{uuid.uuid4().hex}{ext}"
         dst_path = os.path.join(UPLOAD_DIR, file_name)
+        # read content once to compute hash and save
+        content = await image.read()
+        sha = hashlib.sha256()
+        sha.update(content)
+        image_hash = sha.hexdigest()
         with open(dst_path, "wb") as f:
-            f.write(await image.read())
+            f.write(content)
         # store url as relative to save_path root (e.g., 'alarms/<file>')
         image_url = os.path.join("alarms", file_name).replace("\\", "/")
 
@@ -51,6 +62,7 @@ async def create_alarm(
         confidence=confidence,
         device_ip=device_ip,
         image_url=image_url,
+        image_hash=image_hash or "",
     )
     new_alarm = crud.create_alarm(db, alarm_in, image_url=image_url)
     return new_alarm

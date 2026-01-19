@@ -21,6 +21,7 @@ def create_alarm(db: Session, alarm: schemas.AlarmCreate, image_url: Optional[st
         process_feedback=alarm.process_feedback,
         process_feedback_person=alarm.process_feedback_person,
         image_url=image_url,
+        image_hash=alarm.image_hash,
         device_ip=alarm.device_ip,
         user_code=alarm.user_code,
     )
