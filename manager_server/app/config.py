@@ -41,6 +41,9 @@ class Settings:
         self.save_path = server.get("save_path", "./uploads")
         # Optional routes file for temporary GPS data source
         self.routes_file = server.get("routes_file", None)
+        # logging
+        self.log_dir = server.get("log_dir", "./logs")
+        self.log_level = str(server.get("log_level", "INFO")).upper()
 
         # compute absolute upload directory
         if os.path.isabs(self.save_path):

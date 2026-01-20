@@ -1,12 +1,86 @@
 from typing import List, Optional
+import math
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, func
 from datetime import datetime
 from . import models, schemas
+from .config import get_settings
 from passlib.context import CryptContext
-
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+try:
+    from imagededup.methods import WHash  # type: ignore
+    _whash = WHash()
+except Exception:
+    _whash = None
+
+def _hex_hamming_distance(h1: str, h2: str) -> int:
+    """Compute Hamming distance, preferring imagededup WHash if available."""
+    if _whash is not None:
+        try:
+            return int(_whash.hamming_distance(h1, h2))
+        except Exception:
+            pass
+    # Fallback: treat as hex strings and compare bits
+    try:
+        b1 = bytes.fromhex(h1)
+        b2 = bytes.fromhex(h2)
+    except Exception:
+        return max(len(h1), len(h2))
+    n = max(len(b1), len(b2))
+    b1 = b1.ljust(n, b"\x00")
+    b2 = b2.ljust(n, b"\x00")
+    dist = 0
+    for x, y in zip(b1, b2):
+        dist += bin(x ^ y).count("1")
+    return dist
+
+
+def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371000.0  # Earth radius in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+
+def need_alarm(db: Session, alarm: schemas.AlarmCreate) -> bool:
+    """
+    与数据库中 process_status=ignore 的记录做相似性判断：
+    1) 若 image_hash 的汉明距离 < 配置 image_hash_distance，
+    2) 再判断 GPS 距离 < 配置 gps_distance（米），
+    两者都满足则返回 True（视为相似）。否则返回 False。
+    """
+    settings = get_settings()
+    hash_thr = int(getattr(settings, "image_hash_distance", 18))
+    gps_thr = float(getattr(settings, "gps_distance", 50))
+
+    if not alarm.image_hash:
+        return False
+
+    stmt = select(
+        models.AlarmInfo.image_hash,
+        models.AlarmInfo.latitude,
+        models.AlarmInfo.longitude,
+    ).where(models.AlarmInfo.process_status == "ignore")
+    rows = db.execute(stmt).all()
+
+    for row in rows:
+        img_hash_db, lat_db, lon_db = row
+        if not img_hash_db:
+            continue
+        # 先比对哈希汉明距离
+        dist = _hex_hamming_distance(alarm.image_hash, str(img_hash_db))
+        if dist < hash_thr:
+            # 再比对 GPS（小数点后七位精度前提下，使用米级距离判断）
+            d_m = _haversine_meters(float(alarm.latitude), float(alarm.longitude), float(lat_db), float(lon_db))
+            if d_m < gps_thr:
+                return True
+    return False
+    
 
 def create_alarm(db: Session, alarm: schemas.AlarmCreate, image_url: Optional[str]) -> models.AlarmInfo:
     db_alarm = models.AlarmInfo(

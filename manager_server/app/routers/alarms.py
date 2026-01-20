@@ -5,6 +5,19 @@ from typing import Optional, List
 import os
 import uuid
 import hashlib
+from io import BytesIO
+try:
+    from imagededup.methods import WHash  # type: ignore
+    _whash = WHash()
+except Exception:
+    _whash = None
+try:
+    from PIL import Image  # type: ignore
+    import numpy as np  # type: ignore
+except Exception:
+    Image = None  # type: ignore
+    np = None  # type: ignore
+import logging
 
 from ..database import get_db
 from ..config import get_settings
@@ -12,6 +25,7 @@ from .. import schemas, crud
 from ..deps import parse_auth
 
 router = APIRouter(prefix="/api/v1/alarms", tags=["alarms"], dependencies=[Depends(parse_auth)]) 
+logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 settings = get_settings()
@@ -43,9 +57,19 @@ async def create_alarm(
         dst_path = os.path.join(UPLOAD_DIR, file_name)
         # read content once to compute hash and save
         content = await image.read()
-        sha = hashlib.sha256()
-        sha.update(content)
-        image_hash = sha.hexdigest()
+        # Prefer perceptual hash (WHash) if available, else fallback to SHA256
+        if _whash is not None and Image is not None and np is not None:
+            try:
+                with Image.open(BytesIO(content)) as im:
+                    im = im.convert('RGB')
+                    arr = np.array(im)
+                image_hash = _whash.encode_image(image_array=arr)
+            except Exception:
+                sha = hashlib.sha256(); sha.update(content)
+                image_hash = sha.hexdigest()
+        else:
+            sha = hashlib.sha256(); sha.update(content)
+            image_hash = sha.hexdigest()
         with open(dst_path, "wb") as f:
             f.write(content)
         # store url as relative to save_path root (e.g., 'alarms/<file>')
@@ -64,7 +88,15 @@ async def create_alarm(
         image_url=image_url,
         image_hash=image_hash or "",
     )
+    # Similarity check: if similar to ignored ones, mark as ignore before insert
+    try:
+        if crud.need_alarm(db, alarm_in):
+            alarm_in.process_status = "ignore"
+            logger.info("Alarm marked ignore by similarity: device_ip=%s type=%s", device_ip, alarm_type)
+    except Exception:
+        logger.exception("need_alarm check failed; proceeding without ignore")
     new_alarm = crud.create_alarm(db, alarm_in, image_url=image_url)
+    logger.info("Alarm created: id=%s device_ip=%s type=%s", getattr(new_alarm, "alarm_id", None), device_ip, alarm_type)
     return new_alarm
 
 
@@ -72,7 +104,9 @@ async def create_alarm(
 def get_alarm(alarm_id: int, db: Session = Depends(get_db), request: Request = None):
     alarm = crud.get_alarm(db, alarm_id)
     if not alarm:
+        logger.warning("Alarm not found: id=%s", alarm_id)
         raise HTTPException(status_code=404, detail="Alarm not found")
+    logger.info("Get alarm: id=%s type=%s", alarm_id, getattr(alarm, "alarm_type", None))
     return alarm
 
 
@@ -101,6 +135,7 @@ def list_alarms(
     st = datetime.fromisoformat(start_time) if start_time else None
     et = datetime.fromisoformat(end_time) if end_time else None
     items = crud.query_alarms(db, st, et, alarm_type, process_status, user_code, skip, min(limit, 200))
+    logger.info("List alarms: count=%s process_status=%s type=%s", len(items), process_status, alarm_type)
     return items
 
 @router.get("/by-process-status", response_model=List[schemas.AlarmRead])
@@ -124,6 +159,7 @@ def list_alarms_by_process_status(
         pass
 
     items = crud.query_alarms_by_process_status(db, user_code, process_status, skip, min(limit, 200))
+    logger.info("List alarms by status: status=%s count=%s", process_status, len(items))
     return items
 
 
@@ -141,7 +177,9 @@ def update_alarm_process(
         header_user_code = None
     updated = crud.update_alarm_process(db, alarm_id, body, header_user_code=header_user_code)
     if not updated:
+        logger.warning("Update alarm process failed: id=%s", alarm_id)
         raise HTTPException(status_code=404, detail="Alarm not found")
+    logger.info("Alarm process updated: id=%s status=%s", alarm_id, getattr(updated, "process_status", None))
     return updated
 
 
@@ -192,8 +230,10 @@ def delete_alarm(alarm_id: int, db: Session = Depends(get_db), request: Request 
     image_urls = crud.get_alarm_image_urls_by_ids(db, [alarm_id])
     deleted = crud.delete_alarms_by_ids(db, [alarm_id])
     if deleted == 0:
+        logger.warning("Delete alarm not found: id=%s", alarm_id)
         raise HTTPException(status_code=404, detail="Alarm not found")
     _remove_local_images(image_urls)
+    logger.info("Alarm deleted: id=%s", alarm_id)
     return {"deleted": deleted}
 
 
@@ -204,4 +244,5 @@ def delete_alarms(ids: List[int], db: Session = Depends(get_db), request: Reques
     image_urls = crud.get_alarm_image_urls_by_ids(db, ids)
     deleted = crud.delete_alarms_by_ids(db, ids)
     _remove_local_images(image_urls)
+    logger.info("Alarms batch deleted: ids=%s deleted=%s", ids, deleted)
     return {"deleted": deleted}

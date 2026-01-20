@@ -13,6 +13,8 @@ server:
   port: 8001
   device_listen_port: 9527
   device_refresh_time: 180
+  image_hash_distance: 18
+  gps_distance: 50
   jwt_secret: 31ed2213r4dwqq12
   save_path: D:\kk\code\kk\manager_server\uploads
   routes_file: D:\kk\code\kk\manager_server\routes.json

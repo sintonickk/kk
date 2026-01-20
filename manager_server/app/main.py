@@ -1,4 +1,6 @@
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 import threading
 import time
 import requests
@@ -12,7 +14,39 @@ from . import crud, schemas
 
 Base.metadata.create_all(bind=engine)
 
+
+def _setup_logging():
+    settings = get_settings()
+    log_dir = getattr(settings, "log_dir", "./logs")
+    log_level = getattr(settings, "log_level", "INFO")
+    os.makedirs(log_dir, exist_ok=True)
+
+    log_path = os.path.join(log_dir, "manager_server.log")
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    file_handler = RotatingFileHandler(log_path, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    if not any(isinstance(h, RotatingFileHandler) for h in root.handlers):
+        root.addHandler(file_handler)
+    if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
+        root.addHandler(console_handler)
+    root.setLevel(getattr(logging, str(log_level).upper(), logging.INFO))
+
+
+_setup_logging()
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Alarm Service", version="0.1.0")
+logger.info("FastAPI application initialized")
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,20 +93,24 @@ def _refresh_devices_loop():
                                 device_info=dev_info,
                             )
                             crud.update_device(db, d.device_id, update)
+                            logger.debug("Refreshed device info from %s", ip)
+                        else:
+                            logger.warning("Device %s responded with status %s", ip, r.status_code)
                     except Exception:
                         # ignore failures for individual devices
-                        pass
+                        logger.exception("Failed to refresh device info from %s", ip)
             finally:
                 db.close()
         except Exception:
             # ignore loop-level failures
-            pass
+            logger.exception("Device refresher loop iteration failed")
         time.sleep(interval)
 
 
 def _start_background_tasks():
     t = threading.Thread(target=_refresh_devices_loop, name="device-refresher", daemon=True)
     t.start()
+    logger.info("Started background task: device-refresher")
 
 
 # start background tasks on import
