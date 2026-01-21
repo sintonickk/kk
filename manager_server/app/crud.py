@@ -6,21 +6,16 @@ from datetime import datetime
 from . import models, schemas
 from .config import get_settings
 from passlib.context import CryptContext
+from imagededup.methods import WHash  # type: ignore
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-try:
-    from imagededup.methods import WHash  # type: ignore
-    _whash = WHash()
-except Exception:
-    _whash = None
+_whash = WHash()
 
 def _hex_hamming_distance(h1: str, h2: str) -> int:
-    """Compute Hamming distance, preferring imagededup WHash if available."""
-    if _whash is not None:
-        try:
-            return int(_whash.hamming_distance(h1, h2))
-        except Exception:
-            pass
+    """Compute Hamming distance using WHash; if it fails, fallback to bitwise hex comparison."""
+    try:
+        return int(_whash.hamming_distance(h1, h2))
+    except Exception:
+        pass
     # Fallback: treat as hex strings and compare bits
     try:
         b1 = bytes.fromhex(h1)

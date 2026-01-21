@@ -18,7 +18,7 @@ user_status_enum = PG_ENUM(
 )
 
 alarm_process_status_enum = PG_ENUM(
-    "unprocessed", "processing", "closed", "ignore",
+    "unprocessed", "processing", "closed", "ignore", "auto_ignore",
     name="alarm_process_status",
     create_type=False,
 )

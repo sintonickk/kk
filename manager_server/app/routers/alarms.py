@@ -5,18 +5,8 @@ from typing import Optional, List
 import os
 import uuid
 import hashlib
-from io import BytesIO
-try:
-    from imagededup.methods import WHash  # type: ignore
-    _whash = WHash()
-except Exception:
-    _whash = None
-try:
-    from PIL import Image  # type: ignore
-    import numpy as np  # type: ignore
-except Exception:
-    Image = None  # type: ignore
-    np = None  # type: ignore
+from imagededup.methods import WHash  # type: ignore
+_whash = WHash()
 import logging
 
 from ..database import get_db
@@ -48,30 +38,22 @@ async def create_alarm(
     创建报警记录
     时间格式：ISO8601字符串，例：2025-10-15T10:30:00+08:00
     """
-    # todo: 需要加上去重的处理
     image_url: Optional[str] = None
     image_hash: Optional[str] = None
     if image is not None:
         ext = os.path.splitext(image.filename)[1] or ".bin"
         file_name = f"{uuid.uuid4().hex}{ext}"
         dst_path = os.path.join(UPLOAD_DIR, file_name)
-        # read content once to compute hash and save
+        # save file first
         content = await image.read()
-        # Prefer perceptual hash (WHash) if available, else fallback to SHA256
-        if _whash is not None and Image is not None and np is not None:
-            try:
-                with Image.open(BytesIO(content)) as im:
-                    im = im.convert('RGB')
-                    arr = np.array(im)
-                image_hash = _whash.encode_image(image_array=arr)
-            except Exception:
-                sha = hashlib.sha256(); sha.update(content)
-                image_hash = sha.hexdigest()
-        else:
-            sha = hashlib.sha256(); sha.update(content)
-            image_hash = sha.hexdigest()
         with open(dst_path, "wb") as f:
             f.write(content)
+        # compute hash: use WHash; fallback to SHA256 only if hashing fails
+        try:
+            image_hash = _whash.encode_image(dst_path)
+        except Exception:
+            sha = hashlib.sha256(); sha.update(content)
+            image_hash = sha.hexdigest()
         # store url as relative to save_path root (e.g., 'alarms/<file>')
         image_url = os.path.join("alarms", file_name).replace("\\", "/")
 
@@ -91,7 +73,7 @@ async def create_alarm(
     # Similarity check: if similar to ignored ones, mark as ignore before insert
     try:
         if crud.need_alarm(db, alarm_in):
-            alarm_in.process_status = "ignore"
+            alarm_in.process_status = "auto_ignore"
             logger.info("Alarm marked ignore by similarity: device_ip=%s type=%s", device_ip, alarm_type)
     except Exception:
         logger.exception("need_alarm check failed; proceeding without ignore")

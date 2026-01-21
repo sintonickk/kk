@@ -23,6 +23,19 @@
         ],
         "console": "integratedTerminal",
         "justMyCode": true
-    }
+    },
+    {
+    "name": "FastAPI (uvicorn) debug",
+    "type": "debugpy",
+    "request": "launch",
+    "module": "uvicorn",
+    "args": ["app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
+    "cwd": "D:/kk/code/kk/manager_server",
+    "env": {
+      "PYTHONPATH": "D:/kk/code/kk/manager_server"
+    },
+    "console": "integratedTerminal",
+    "justMyCode": true
+  }
   ]
 }

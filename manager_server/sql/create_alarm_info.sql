@@ -1,5 +1,5 @@
 -- 第一步：先创建报警处理状态枚举类型（必须前置）
-CREATE TYPE alarm_process_status AS ENUM ('unprocessed', 'processing', 'closed', 'ignore');
+CREATE TYPE alarm_process_status AS ENUM ('unprocessed', 'processing', 'closed', 'ignore', 'auto_ignore');
 
 -- 第二步：创建报警信息表（移除行内COMMENT，保留核心结构）
 CREATE TABLE t_alarm_info (

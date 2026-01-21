@@ -45,7 +45,7 @@ class AlarmCreate(BaseModel):
     confidence: Optional[float] = None
     process_opinion: Optional[str] = None
     process_opinion_person: Optional[int] = None
-    process_status: Optional[Literal["unprocessed", "processing", "closed", "ignore"]] = "unprocessed"
+    process_status: Optional[Literal["unprocessed", "processing", "closed", "ignore", "auto_ignore"]] = "unprocessed"
     process_feedback: Optional[str] = None
     process_feedback_person: Optional[int] = None
     device_ip: str
@@ -63,7 +63,7 @@ class AlarmRead(BaseModel):
     confidence: Optional[float]
     process_opinion: Optional[str]
     process_opinion_person: Optional[int]
-    process_status: Literal["unprocessed", "processing", "closed", "ignore"]
+    process_status: Literal["unprocessed", "processing", "closed", "ignore", "auto_ignore"]
     process_feedback: Optional[str]
     process_feedback_person: Optional[int]
     image_url: Optional[str]
@@ -81,14 +81,14 @@ class AlarmQuery(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     alarm_type: Optional[str] = None
-    process_status: Optional[Literal["unprocessed", "processing", "closed", "ignore"]] = None
+    process_status: Optional[Literal["unprocessed", "processing", "closed", "ignore", "auto_ignore"]] = None
     device_ip: Optional[str] = None
     skip: int = 0
     limit: int = 50
 
 
 class AlarmProcessUpdate(BaseModel):
-    process_status: Optional[Literal["unprocessed", "processing", "closed", "ignore"]] = None
+    process_status: Optional[Literal["unprocessed", "processing", "closed", "ignore", "auto_ignore"]] = None
     process_opinion: Optional[str] = None
     process_feedback: Optional[str] = None
     process_opinion_person: Optional[int] = None
