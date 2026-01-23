@@ -5,9 +5,7 @@ from sqlalchemy import select, and_, func
 from datetime import datetime
 from . import models, schemas
 from .config import get_settings
-from passlib.context import CryptContext
 from imagededup.methods import WHash  # type: ignore
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _whash = WHash()
 
 def _hex_hamming_distance(h1: str, h2: str) -> int:
@@ -16,19 +14,6 @@ def _hex_hamming_distance(h1: str, h2: str) -> int:
         return int(_whash.hamming_distance(h1, h2))
     except Exception:
         pass
-    # Fallback: treat as hex strings and compare bits
-    try:
-        b1 = bytes.fromhex(h1)
-        b2 = bytes.fromhex(h2)
-    except Exception:
-        return max(len(h1), len(h2))
-    n = max(len(b1), len(b2))
-    b1 = b1.ljust(n, b"\x00")
-    b2 = b2.ljust(n, b"\x00")
-    dist = 0
-    for x, y in zip(b1, b2):
-        dist += bin(x ^ y).count("1")
-    return dist
 
 
 def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

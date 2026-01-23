@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Request
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
 import os
 import uuid
-import hashlib
 from imagededup.methods import WHash  # type: ignore
 _whash = WHash()
 import logging
@@ -48,12 +46,8 @@ async def create_alarm(
         content = await image.read()
         with open(dst_path, "wb") as f:
             f.write(content)
-        # compute hash: use WHash; fallback to SHA256 only if hashing fails
-        try:
-            image_hash = _whash.encode_image(dst_path)
-        except Exception:
-            sha = hashlib.sha256(); sha.update(content)
-            image_hash = sha.hexdigest()
+        # compute hash: use WHash; 
+        image_hash = _whash.encode_image(dst_path)
         # store url as relative to save_path root (e.g., 'alarms/<file>')
         image_url = os.path.join("alarms", file_name).replace("\\", "/")
 
