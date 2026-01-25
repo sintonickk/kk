@@ -189,6 +189,56 @@ def stats_today_hourly(db: Session = Depends(get_db), request: Request = None):
     return result
 
 
+@router.get("/today-events")
+def list_today_events(db: Session = Depends(get_db)):
+    """Return today's alarms with:
+    - items: list of {image_url, location [lon, lat], alarm_time, process_status}
+    - summary: {total, processed, feedback_confirmed, ignored, auto_ignored}
+    """
+    from datetime import datetime
+    now = datetime.now()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    items = crud.query_alarms(db, start, now, None, None, None, 0, 1000)
+    resp = []
+    # counters
+    total = 0
+    processed = 0  # processing + closed
+    feedback_confirmed = 0  # closed
+    ignored = 0  # ignore
+    auto_ignored = 0  # auto_ignore
+    for it in items:
+        total += 1
+        status = str(getattr(it, "process_status", ""))
+        if status in ("processing", "closed"):
+            processed += 1
+        if status == "closed":
+            feedback_confirmed += 1
+        if status == "ignore":
+            ignored += 1
+        if status == "auto_ignore":
+            auto_ignored += 1
+        try:
+            lon = float(getattr(it, "longitude", 0.0))
+            lat = float(getattr(it, "latitude", 0.0))
+        except Exception:
+            lon = getattr(it, "longitude", 0.0)
+            lat = getattr(it, "latitude", 0.0)
+        resp.append({
+            "image_url": getattr(it, "image_url", None),
+            "location": [lon, lat],
+            "alarm_time": getattr(it, "alarm_time", None),
+            "process_status": getattr(it, "process_status", None),
+        })
+    summary = {
+        "total": total,
+        "processed": processed,
+        "feedback_confirmed": feedback_confirmed,
+        "ignored": ignored,
+        "auto_ignored": auto_ignored,
+    }
+    logger.info("Today events retrieved: count=%s, summary=%s", len(resp), summary)
+    return {"summary": summary, "items": resp}
+
 def _remove_local_images(image_urls: List[str]):
     for rel in image_urls:
         # stored image_url is relative to save_path; resolve under settings.upload_dir
