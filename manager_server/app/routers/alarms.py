@@ -76,124 +76,11 @@ async def create_alarm(
     return new_alarm
 
 
-@router.get("/{alarm_id}", response_model=schemas.AlarmRead)
-def get_alarm(alarm_id: int, db: Session = Depends(get_db), request: Request = None):
-    alarm = crud.get_alarm(db, alarm_id)
-    if not alarm:
-        logger.warning("Alarm not found: id=%s", alarm_id)
-        raise HTTPException(status_code=404, detail="Alarm not found")
-    logger.info("Get alarm: id=%s type=%s", alarm_id, getattr(alarm, "alarm_type", None))
-    return alarm
-
-
-@router.get("", response_model=List[schemas.AlarmRead])
-def list_alarms(
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    alarm_type: Optional[str] = None,
-    process_status: Optional[str] = None,
-    user_code: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
-    db: Session = Depends(get_db),
-    request: Request = None,
-):
-    from datetime import datetime
-
-    # prefer header user_code over query param
-    try:
-        header_uc = getattr(getattr(request, "state", None), "auth", {}).get("user_code") if request else None
-        if header_uc:
-            user_code = header_uc
-    except Exception:
-        pass
-
-    st = datetime.fromisoformat(start_time) if start_time else None
-    et = datetime.fromisoformat(end_time) if end_time else None
-    items = crud.query_alarms(db, st, et, alarm_type, process_status, user_code, skip, min(limit, 200))
-    logger.info("List alarms: count=%s process_status=%s type=%s", len(items), process_status, alarm_type)
-    return items
-
-@router.get("/by-process-status", response_model=List[schemas.AlarmRead])
-def list_alarms_by_process_status(
-    process_status: str = "unprocessed",
-    skip: int = 0,
-    limit: int = 50,
-    db: Session = Depends(get_db),
-    request: Request = None,
-):
-    """
-    List alarms by process status.
-    process_status: unprocessed, processing, closed, ignore
-    """
-    # prefer header user_code over query param
-    try:
-        header_uc = getattr(getattr(request, "state", None), "auth", {}).get("user_code") if request else None
-        if header_uc:
-            user_code = header_uc
-    except Exception:
-        pass
-
-    items = crud.query_alarms_by_process_status(db, user_code, process_status, skip, min(limit, 200))
-    logger.info("List alarms by status: status=%s count=%s", process_status, len(items))
-    return items
-
-
-@router.put("/{alarm_id}/process", response_model=schemas.AlarmRead)
-def update_alarm_process(
-    alarm_id: int,
-    body: schemas.AlarmProcessUpdate,
-    db: Session = Depends(get_db),
-    request: Request = None,
-):
-    # extract header user_code and pass to CRUD to update alarm.user_code
-    try:
-        header_user_code = getattr(getattr(request, "state", None), "auth", {}).get("user_code") if request else None
-    except Exception:
-        header_user_code = None
-    updated = crud.update_alarm_process(db, alarm_id, body, header_user_code=header_user_code)
-    if not updated:
-        logger.warning("Update alarm process failed: id=%s", alarm_id)
-        raise HTTPException(status_code=404, detail="Alarm not found")
-    logger.info("Alarm process updated: id=%s status=%s", alarm_id, getattr(updated, "process_status", None))
-    return updated
-
-
-@router.get("/stats/today-hourly")
-def stats_today_hourly(db: Session = Depends(get_db), request: Request = None):
-    rows = crud.stats_today_hourly(db)
-    # Build a map: hour (0-23) -> count
-    counts_by_hour: dict[int, int] = {}
-    for hour_dt, cnt in rows:
-        h = None
-        try:
-            # hour_dt likely a datetime
-            h = int(getattr(hour_dt, "hour"))
-        except Exception:
-            h = None
-        if h is None:
-            # fallback: try to parse from string like '2026-01-16 10:00:00'
-            try:
-                s = str(hour_dt)
-                # find HH at positions 11-13 or 0-2 if only hour
-                if len(s) >= 13 and s[11:13].isdigit():
-                    h = int(s[11:13])
-                elif len(s) >= 2 and s[0:2].isdigit():
-                    h = int(s[0:2])
-            except Exception:
-                h = None
-        if h is not None and 0 <= h <= 23:
-            counts_by_hour[h] = int(cnt)
-    # Produce full 24 hours
-    result = [{"time": f"{h:02d}:00", "count": counts_by_hour.get(h, 0)} for h in range(0, 24)]
-    return result
-
-
 @router.get("/today-events")
 def list_today_events(db: Session = Depends(get_db)):
     """Return today's alarms with:
-    - items: list of {image_url, location [lon, lat], alarm_time, process_status}
-    - summary: {total, processed, feedback_confirmed, ignored, auto_ignored}
+    - items: list of AlarmRead objects
+    - summary: {total, processed, feedback_confirmed, ignored, auto_ignored, unprocessed}
     """
     from datetime import datetime
     now = datetime.now()
@@ -244,6 +131,122 @@ def list_today_events(db: Session = Depends(get_db)):
     }
     logger.info("Today events retrieved: count=%s, summary=%s", len(resp), summary)
     return {"summary": summary, "items": resp}
+
+
+@router.get("/stats/today-hourly")
+def stats_today_hourly(db: Session = Depends(get_db), request: Request = None):
+    rows = crud.stats_today_hourly(db)
+    # Build a map: hour (0-23) -> count
+    counts_by_hour: dict[int, int] = {}
+    for hour_dt, cnt in rows:
+        h = None
+        try:
+            # hour_dt likely a datetime
+            h = int(getattr(hour_dt, "hour"))
+        except Exception:
+            h = None
+        if h is None:
+            # fallback: try to parse from string like '2026-01-16 10:00:00'
+            try:
+                s = str(hour_dt)
+                # find HH at positions 11-13 or 0-2 if only hour
+                if len(s) >= 13 and s[11:13].isdigit():
+                    h = int(s[11:13])
+                elif len(s) >= 2 and s[0:2].isdigit():
+                    h = int(s[0:2])
+            except Exception:
+                h = None
+        if h is not None and 0 <= h <= 23:
+            counts_by_hour[h] = int(cnt)
+    # Produce full 24 hours
+    result = [{"time": f"{h:02d}:00", "count": counts_by_hour.get(h, 0)} for h in range(0, 24)]
+    return result
+
+
+@router.get("/by-process-status", response_model=List[schemas.AlarmRead])
+def list_alarms_by_process_status(
+    process_status: str = "unprocessed",
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    """
+    List alarms by process status.
+    process_status: unprocessed, processing, closed, ignore
+    """
+    # prefer header user_code over query param
+    try:
+        header_uc = getattr(getattr(request, "state", None), "auth", {}).get("user_code") if request else None
+        if header_uc:
+            user_code = header_uc
+    except Exception:
+        pass
+
+    items = crud.query_alarms_by_process_status(db, user_code, process_status, skip, min(limit, 200))
+    logger.info("List alarms by status: status=%s count=%s", process_status, len(items))
+    return items
+
+
+@router.get("", response_model=List[schemas.AlarmRead])
+def list_alarms(
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    alarm_type: Optional[str] = None,
+    process_status: Optional[str] = None,
+    user_code: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    from datetime import datetime
+
+    # prefer header user_code over query param
+    try:
+        header_uc = getattr(getattr(request, "state", None), "auth", {}).get("user_code") if request else None
+        if header_uc:
+            user_code = header_uc
+    except Exception:
+        pass
+
+    st = datetime.fromisoformat(start_time) if start_time else None
+    et = datetime.fromisoformat(end_time) if end_time else None
+    items = crud.query_alarms(db, st, et, alarm_type, process_status, user_code, skip, min(limit, 200))
+    logger.info("List alarms: count=%s process_status=%s type=%s", len(items), process_status, alarm_type)
+    return items
+
+
+@router.get("/{alarm_id}", response_model=schemas.AlarmRead)
+def get_alarm(alarm_id: int, db: Session = Depends(get_db), request: Request = None):
+    alarm = crud.get_alarm(db, alarm_id)
+    if not alarm:
+        logger.warning("Alarm not found: id=%s", alarm_id)
+        raise HTTPException(status_code=404, detail="Alarm not found")
+    logger.info("Get alarm: id=%s type=%s", alarm_id, getattr(alarm, "alarm_type", None))
+    return alarm
+
+
+@router.put("/{alarm_id}/process", response_model=schemas.AlarmRead)
+def update_alarm_process(
+    alarm_id: int,
+    body: schemas.AlarmProcessUpdate,
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    # extract header user_code and pass to CRUD to update alarm.user_code
+    try:
+        header_user_code = getattr(getattr(request, "state", None), "auth", {}).get("user_code") if request else None
+    except Exception:
+        header_user_code = None
+    updated = crud.update_alarm_process(db, alarm_id, body, header_user_code=header_user_code)
+    if not updated:
+        logger.warning("Update alarm process failed: id=%s", alarm_id)
+        raise HTTPException(status_code=404, detail="Alarm not found")
+    logger.info("Alarm process updated: id=%s status=%s", alarm_id, getattr(updated, "process_status", None))
+    return updated
+
+
 
 def _remove_local_images(image_urls: List[str]):
     for rel in image_urls:
