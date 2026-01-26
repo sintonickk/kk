@@ -1,6 +1,10 @@
 # Ignore Python bytecode caches everywhere
 **/__pycache__/**
 __pycache__/
+**/dist/**
+dist/
+**/build/**
+build/
 
 # (Optional) Ignore compiled python files just in case
 *.pyc
