@@ -10,3 +10,12 @@ bcrypt==4.0.1
 imagededup==0.3.2
 Pillow==10.2.0
 numpy==1.26.4
+scipy==1.13.1
+jaraco.text
+jaraco.context
+jaraco.functools
+importlib-metadata>=6.8.0.9
+platformdirs
+six
+pytz
+tzdata

@@ -1,4 +1,5 @@
 import os
+import sys
 from functools import lru_cache
 import yaml
 
@@ -8,9 +9,20 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config", "config.yaml")
 
 @lru_cache(maxsize=1)
 def load_settings() -> dict:
-    if not os.path.exists(CONFIG_PATH):
-        raise FileNotFoundError(f"Config file not found: {CONFIG_PATH}")
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    # In frozen exe, look for config next to exe first; then fallback to bundled
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(sys.executable)
+        config_path_exe = os.path.join(exe_dir, "config", "config.yaml")
+        if os.path.exists(config_path_exe):
+            config_path = config_path_exe
+        else:
+            # fallback to bundled config (read-only)
+            config_path = os.path.join(getattr(sys, "_MEIPASS", "."), "config", "config.yaml")
+    else:
+        config_path = CONFIG_PATH
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    with open(config_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     if "database" not in data:
         raise KeyError("Missing 'database' section in config.yaml")
@@ -40,7 +52,17 @@ class Settings:
         self.jwt_secret = server.get("jwt_secret", "CHANGE_ME_SECRET")
         self.save_path = server.get("save_path", "./uploads")
         # Optional routes file for temporary GPS data source
-        self.routes_file = server.get("routes_file", None)
+        routes_file = server.get("routes_file", None)
+        if routes_file:
+            if getattr(sys, "frozen", False):
+                # In exe, look next to exe first
+                exe_dir = os.path.dirname(sys.executable)
+                candidate = os.path.join(exe_dir, os.path.basename(routes_file))
+                self.routes_file = candidate if os.path.exists(candidate) else routes_file
+            else:
+                self.routes_file = routes_file
+        else:
+            self.routes_file = None
         # logging
         self.log_dir = server.get("log_dir", "./logs")
         self.log_level = str(server.get("log_level", "INFO")).upper()
@@ -49,7 +71,9 @@ class Settings:
         if os.path.isabs(self.save_path):
             self.upload_dir = self.save_path
         else:
-            self.upload_dir = os.path.normpath(os.path.join(BASE_DIR, self.save_path))
+            # In frozen exe, base dir is where the exe resides; otherwise use script dir
+            base_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else BASE_DIR
+            self.upload_dir = os.path.normpath(os.path.join(base_dir, self.save_path))
 
     @property
     def sqlalchemy_url(self) -> str:
