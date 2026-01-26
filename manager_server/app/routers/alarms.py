@@ -86,7 +86,6 @@ def list_today_events(db: Session = Depends(get_db)):
     now = datetime.now()
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     items = crud.query_alarms(db, start, now, None, None, None, 0, 1000)
-    resp = []
     # counters
     total = 0
     processed = 0  # processing + closed
@@ -104,23 +103,6 @@ def list_today_events(db: Session = Depends(get_db)):
             ignored += 1
         if status == "auto_ignore":
             auto_ignored += 1
-        alarm_read = schemas.AlarmRead(
-            alarm_id=getattr(it, "alarm_id", None),
-            alarm_time=getattr(it, "alarm_time", None),
-            longitude=getattr(it, "longitude", None),
-            latitude=getattr(it, "latitude", None),
-            alarm_type=getattr(it, "alarm_type", None),
-            confidence=getattr(it, "confidence", None),
-            device_ip=getattr(it, "device_ip", None),
-            image_url=getattr(it, "image_url", None),
-            image_hash=getattr(it, "image_hash", None),
-            process_status=getattr(it, "process_status", None),
-            process_opinion_person=getattr(it, "process_opinion_person", None),
-            process_feedback_person=getattr(it, "process_feedback_person", None),
-            process_time=getattr(it, "process_time", None),
-            process_note=getattr(it, "process_note", None)
-        )
-        resp.append(alarm_read)
     summary = {
         "total": total,
         "processed": processed,
@@ -129,8 +111,8 @@ def list_today_events(db: Session = Depends(get_db)):
         "auto_ignored": auto_ignored,
         "unprocessed": total - processed,
     }
-    logger.info("Today events retrieved: count=%s, summary=%s", len(resp), summary)
-    return {"summary": summary, "items": resp}
+    logger.info("Today events retrieved: count=%s, summary=%s", len(items), summary)
+    return {"summary": summary, "items": items}
 
 
 @router.get("/stats/today-hourly")
