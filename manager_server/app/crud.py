@@ -6,7 +6,11 @@ from datetime import datetime
 from . import models, schemas
 from .config import get_settings
 from imagededup.methods import WHash  # type: ignore
+from passlib.context import CryptContext
 _whash = WHash()
+
+# password hashing context for users
+pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def _hex_hamming_distance(h1: str, h2: str) -> int:
     """Compute Hamming distance using WHash; if it fails, fallback to bitwise hex comparison."""
