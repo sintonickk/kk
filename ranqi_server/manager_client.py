@@ -120,7 +120,13 @@ def update_device_by_code_startup(default_base: str = "http://127.0.0.1:8001") -
     base_url is resolved from config (manager_base_url) with fallback to default_base.
     """
     base_url = get_manager_base_url(default=default_base)
-    update_device_by_code(base_url)
+    # 如果没有成功就一直重试
+    while True:
+        ret = update_device_by_code(base_url)
+        if ret:
+            break
+        logger.warning("Failed to update device info on startup: base_url=%s", base_url)
+        time.sleep(1)
 
 
 # ---------------- RESTful Config Listener ----------------

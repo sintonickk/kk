@@ -1,5 +1,5 @@
 {
-  "rtsp_url": "rtsp://192.168.31.222:8554/test?rtsp_transport=tcp&stimeout=30000000",
+  "rtsp_url": "rtsp://127.0.0.1:8554/test?rtsp_transport=tcp&stimeout=30000000",
   "fps": 2,
   "frame_queue_size": 100,
   "alarm_queue_size": 200,
@@ -12,7 +12,7 @@
   "device": "cpu",
   "save_frame": false,
   "save_pic": true,
-  "save_video": true,
+  "save_video": false,
   "listen_port": 9527,
   "manager_base_url": "http://127.0.0.1:8001",
   "backend_base_url": "http://127.0.0.1:5000",
@@ -28,5 +28,5 @@
     "duration_sec": 10,
     "record_buffer_sec": 5
   },
-  "weights_path": "D:\\kk\\code\\kk\\train_output\\yolos_cls_640_best_92.8.pt"
+  "weights_path": "D:\\kk\\code\\kk\\ranqi_server\\train_output\\2026-1-18-yolos_cls_640_best.pt"
 }

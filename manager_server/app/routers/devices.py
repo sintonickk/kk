@@ -99,8 +99,8 @@ def update_device_by_code(device_code: str, body: schemas.DeviceUpdate, db: Sess
     # 先根据 device_code 定位设备，再重用 update_device 逻辑
     item = crud.get_device_by_code(db, device_code)
     if not item:
-        logger.warning("Device not found for update by code: %s", device_code)
-        raise HTTPException(status_code=404, detail="Device not found")
+        logger.info("Device not found for update by code: %s, now create", device_code)
+        item = crud.create_device(db, body)
     try:
         updated = crud.update_device(db, item.device_id, body)
         logger.info("Device updated by code: code=%s id=%s", device_code, item.device_id)

@@ -459,6 +459,8 @@ def update_device(db: Session, device_id: int, body: schemas.DeviceUpdate) -> Op
         item.device_info = body.device_info
     if body.status is not None:
         item.status = body.status
+    
+    item.update_time = datetime.now()
     db.add(item)
     db.commit()
     db.refresh(item)
