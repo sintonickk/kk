@@ -18,6 +18,8 @@ CREATE TABLE t_alarm_info (
     image_hash VARCHAR(64) NOT NULL,
     device_ip VARCHAR(15) NOT NULL,
     user_code VARCHAR(64),  -- 允许为空（如报警暂未分配给用户时）
+    address VARCHAR(1024),
+    simple_address VARCHAR(1024),
     create_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
@@ -45,6 +47,8 @@ COMMENT ON COLUMN t_alarm_info.image_hash IS '报警图片的哈希值';
 COMMENT ON COLUMN t_alarm_info.user_code IS '关联的用户编号（处理该报警的用户）';
 COMMENT ON COLUMN t_alarm_info.create_time IS '报警记录创建时间';
 COMMENT ON COLUMN t_alarm_info.update_time IS '报警记录更新时间';
+COMMENT ON COLUMN t_alarm_info.address IS '报警位置详细地址';
+COMMENT ON COLUMN t_alarm_info.simple_address IS '报警位置简单地址';
 
 -- 第四步：给表添加整体注释（可选）
 COMMENT ON TABLE t_alarm_info IS '报警信息表';

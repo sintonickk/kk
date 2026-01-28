@@ -51,6 +51,7 @@ class Settings:
         # JWT secret for HS256
         self.jwt_secret = server.get("jwt_secret", "CHANGE_ME_SECRET")
         self.save_path = server.get("save_path", "./uploads")
+        self.baidu_ak = server.get("baidu_ak", None)
         # Optional routes file for temporary GPS data source
         routes_file = server.get("routes_file", None)
         if routes_file:

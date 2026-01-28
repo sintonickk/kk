@@ -6,6 +6,7 @@ from datetime import datetime
 from . import models, schemas
 from .config import get_settings
 from imagededup.methods import WHash  # type: ignore
+from .mapfunc import baidu_reverse_geocode
 from passlib.context import CryptContext
 _whash = WHash()
 
@@ -67,6 +68,8 @@ def need_alarm(db: Session, alarm: schemas.AlarmCreate) -> bool:
     
 
 def create_alarm(db: Session, alarm: schemas.AlarmCreate, image_url: Optional[str]) -> models.AlarmInfo:
+    address = baidu_reverse_geocode(alarm.latitude, alarm.longitude)
+    addr = address or {}
     db_alarm = models.AlarmInfo(
         alarm_time=alarm.alarm_time,
         longitude=alarm.longitude,
@@ -82,6 +85,8 @@ def create_alarm(db: Session, alarm: schemas.AlarmCreate, image_url: Optional[st
         image_hash=alarm.image_hash,
         device_ip=alarm.device_ip,
         user_code=alarm.user_code,
+        address=addr.get("address"),
+        simple_address=addr.get("simple_address"),
     )
     db.add(db_alarm)
     db.commit()

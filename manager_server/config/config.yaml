@@ -16,5 +16,6 @@ server:
   image_hash_distance: 18
   gps_distance: 50
   jwt_secret: 31ed2213r4dwqq12
+  baidu_ak: eM1J1N4v7mOvME3dDmuS8sTG87HoTRct
   save_path: D:\kk\code\kk\manager_server\uploads
   routes_file: D:\kk\code\kk\manager_server\routes.json

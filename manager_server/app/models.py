@@ -64,6 +64,8 @@ class AlarmInfo(Base):
     device_ip = Column(String(15), ForeignKey("t_device.device_ip", onupdate="CASCADE", ondelete="RESTRICT"), nullable=False)
     # align with existing DB: use user_code (string) instead of user_id
     user_code = Column(String(64), ForeignKey("t_user.user_code", onupdate="CASCADE", ondelete="SET NULL"), nullable=True)
+    address = Column(String(1024), nullable=True)
+    simple_address = Column(String(1024), nullable=True)
     create_time = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     update_time = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
