@@ -113,5 +113,5 @@ def _start_background_tasks():
     logger.info("Started background task: device-refresher")
 
 
-# start background tasks on import
-_start_background_tasks()
+# todo 暂时不使用主动刷新，设备信息使用设备主动上传信息的方式
+# _start_background_tasks()

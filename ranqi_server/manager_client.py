@@ -8,6 +8,7 @@ from system_info import get_system_info
 import json
 from pathlib import Path
 from net_utils import get_local_ip
+import uuid
 
 # Lightweight REST listener to update local config
 try:
@@ -70,6 +71,56 @@ def send_alarm(
     except Exception:
         # Do not raise to avoid breaking caller loops
         pass
+
+
+def _get_local_mac() -> str:
+    """Return local MAC address in standard AA:BB:CC:DD:EE:FF format."""
+    try:
+        node = uuid.getnode()
+        mac = ":".join([f"{(node >> ele) & 0xff:02X}" for ele in range(40, -1, -8)])
+        return mac
+    except Exception:
+        return ""
+
+
+def update_device_by_code(base_url: str, timeout: int = 5, headers: Optional[Dict[str, str]] = None) -> bool:
+    """Update device info on manager_server using device_code = local MAC.
+    Returns True if request sent successfully (HTTP 200/201/204), else False.
+    """
+    try:
+        device_code = _get_local_mac()
+        if not device_code:
+            return False
+        url = f"{base_url.rstrip('/')}/api/v1/devices/by-code/{device_code}"
+        device_ip = get_local_ip()
+        cfg = {}
+        info = {}
+        try:
+            cfg = load_config() or {}
+        except Exception:
+            cfg = {}
+        try:
+            info = get_system_info() or {}
+        except Exception:
+            info = {}
+        body = {
+            "device_ip": device_ip,
+            "device_config": cfg,
+            "device_info": info,
+            "status": "online",
+        }
+        resp = requests.put(url, json=body, headers=headers or {}, timeout=timeout)
+        return resp.status_code in (200, 201, 204)
+    except Exception:
+        return False
+
+
+def update_device_by_code_startup(default_base: str = "http://127.0.0.1:8001") -> None:
+    """Convenience wrapper to update device info on startup.
+    base_url is resolved from config (manager_base_url) with fallback to default_base.
+    """
+    base_url = get_manager_base_url(default=default_base)
+    update_device_by_code(base_url)
 
 
 # ---------------- RESTful Config Listener ----------------

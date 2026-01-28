@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class DeviceCreate(BaseModel):
     device_ip: str = Field(max_length=15)
+    device_code: str
     rtsp_urls: Optional[List[str]] = Field(default=None)
     note: Optional[str] = None
     device_config: Optional[Any] = None

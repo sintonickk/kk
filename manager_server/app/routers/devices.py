@@ -94,6 +94,22 @@ def update_device_by_ip(device_ip: str, body: schemas.DeviceUpdate, db: Session 
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/by-code/{device_code}", response_model=schemas.DeviceRead)
+def update_device_by_code(device_code: str, body: schemas.DeviceUpdate, db: Session = Depends(get_db)):
+    # 先根据 device_code 定位设备，再重用 update_device 逻辑
+    item = crud.get_device_by_code(db, device_code)
+    if not item:
+        logger.warning("Device not found for update by code: %s", device_code)
+        raise HTTPException(status_code=404, detail="Device not found")
+    try:
+        updated = crud.update_device(db, item.device_id, body)
+        logger.info("Device updated by code: code=%s id=%s", device_code, item.device_id)
+        return updated
+    except Exception as e:
+        logger.warning("Device update by code failed: code=%s err=%s", device_code, e)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/by-ip/{device_ip}", response_model=schemas.DeviceRead)
 def get_device_by_ip(device_ip: str, db: Session = Depends(get_db)):
     item = crud.get_device_by_ip(db, device_ip)

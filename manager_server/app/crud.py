@@ -402,24 +402,13 @@ def _device_code_exists(db: Session, code: str) -> bool:
     stmt = select(models.Device.device_id).where(models.Device.device_code == code)
     return db.execute(stmt).first() is not None
 
-
-def _generate_device_code() -> str:
-    # pattern: D + yymmdd + random 4 hex
-    from datetime import datetime as _dt
-    import secrets
-    return f"D{_dt.now().strftime('%y%m%d')}{secrets.token_hex(2).upper()}"
-
-
-def generate_unique_device_code(db: Session, max_attempts: int = 10) -> str:
-    for _ in range(max_attempts):
-        code = _generate_device_code()
-        if not _device_code_exists(db, code):
-            return code
-    raise RuntimeError("Failed to generate unique device_code after multiple attempts")
-
-
 def create_device(db: Session, body: schemas.DeviceCreate) -> models.Device:
-    code = generate_unique_device_code(db)
+    # require external device_code and ensure uniqueness
+    code = str(getattr(body, "device_code", "")).strip()
+    if not code:
+        raise ValueError("device_code is required")
+    if _device_code_exists(db, code):
+        raise ValueError("device_code already exists")
     item = models.Device(
         device_code=code,
         device_ip=body.device_ip,
@@ -446,6 +435,11 @@ def list_devices(db: Session) -> List[models.Device]:
 
 def get_device_by_ip(db: Session, device_ip: str) -> Optional[models.Device]:
     stmt = select(models.Device).where(models.Device.device_ip == device_ip)
+    return db.execute(stmt).scalars().first()
+
+
+def get_device_by_code(db: Session, device_code: str) -> Optional[models.Device]:
+    stmt = select(models.Device).where(models.Device.device_code == device_code)
     return db.execute(stmt).scalars().first()
 
 

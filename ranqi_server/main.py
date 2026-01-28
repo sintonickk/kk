@@ -5,7 +5,7 @@ from frame_analyzer import frame_analyzer
 from alarm_handler import alarm_handler
 from config_manager import load_config
 from logger_setup import get_logger
-from manager_client import run_config_listener
+from manager_client import run_config_listener, update_device_by_code_startup
 
 def main():
     logger = get_logger(__name__)
@@ -20,6 +20,13 @@ def main():
     rtsp_url = cfg.get("rtsp_url", "rtsp://your-rtsp-url")
     fps = cfg.get("fps", 2)
     
+    # 启动前，向 manager_server 上报设备信息（device_code=本机MAC）
+    try:
+        update_device_by_code_startup()
+        logger.info("已尝试向 manager_server 上报设备信息（按 device_code=MAC）")
+    except Exception:
+        logger.warning("上报设备信息失败，继续启动其他模块")
+
     # 启动RTSP流处理线程
     rtsp_thread = threading.Thread( 
         target=rtsp_processor,
