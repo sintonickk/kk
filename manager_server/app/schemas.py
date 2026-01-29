@@ -71,6 +71,8 @@ class AlarmRead(BaseModel):
     image_hash: str
     device_ip: str
     user_code: Optional[str]
+    address: Optional[str]
+    simple_address: Optional[str]
     create_time: datetime
     update_time: datetime
 
