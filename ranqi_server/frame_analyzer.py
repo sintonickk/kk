@@ -1,22 +1,28 @@
-import cv2
-import time
 import queue
 from datetime import datetime
 from pathlib import Path
 from config_manager import load_config
 from image_tiling import split_into_tiles
 from logger_setup import get_logger
+from gps_ser import get_gps_info
 
 try:
     from ultralytics import YOLO
 except Exception:
     YOLO = None
 
-# todo 需要完成从GPS获取定位信息
+# GPS 获取定位信息（从串口读取一次，失败则返回 0.0, 0.0）
 def _get_gps_location():
-    longitude = float(0.0000000)
-    latitude = float(0.0000000)
-    return longitude, latitude
+    try:
+        info = get_gps_info()
+        if info.get("latitude") is None or info.get("longitude") is None:
+            get_logger(__name__).warning("未获取到GPS定位信息")
+            return 0.0, 0.0
+        lon = float(info.get("longitude") or 0.0)
+        lat = float(info.get("latitude") or 0.0)
+        return lon, lat
+    except Exception:
+        return 0.0, 0.0
 
 def _is_match(classification, conf_threshold, target_classes):
     try:

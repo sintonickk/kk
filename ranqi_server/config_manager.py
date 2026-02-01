@@ -1,8 +1,9 @@
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
-def _frozen_base_dir() -> Path | None:
+def _frozen_base_dir() -> Optional[Path]:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return None

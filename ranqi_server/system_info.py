@@ -4,6 +4,7 @@ import socket
 import subprocess
 import time
 from datetime import datetime
+from net_utils import get_all_external_ips, get_local_ip
 
 try:
     import psutil  # type: ignore
@@ -105,13 +106,17 @@ def get_system_info():
     except Exception:
         hostname = None
     try:
-        ip = socket.gethostbyname(hostname) if hostname else None
+        ips = get_all_external_ips()  # all external-facing IPv4s
+        ip = ips[0] if ips else get_local_ip()
     except Exception:
-        ip = None
+        try:
+            ip = socket.gethostbyname(hostname) if hostname else None
+        except Exception:
+            ip = None
 
     data = {
         "timestamp": ts,
-        "host": {"hostname": hostname, "ip": ip},
+        "host": {"hostname": hostname, "ip": ip, "ips": ips if 'ips' in locals() else None},
         "cpu": _cpu_info(),
         "memory": _memory_info(),
         "gpus": _parse_nvidia_smi(),

@@ -6,6 +6,8 @@ from alarm_handler import alarm_handler
 from config_manager import load_config
 from logger_setup import get_logger
 from manager_client import run_config_listener, update_device_by_code_startup
+import atexit
+from gps_ser import start_gps, stop_gps
 
 def main():
     logger = get_logger(__name__)
@@ -14,7 +16,17 @@ def main():
     frame_queue = queue.Queue(maxsize=cfg.get("frame_queue_size", 100))    # 帧队列（缓存最多100帧）
     alarm_queue = queue.Queue(maxsize=cfg.get("alarm_queue_size", 200))    # 报警队列（缓存最多200条报警）
     record_cmd_queue = queue.Queue()
-    
+
+    # Initialize GPS service and ensure cleanup on exit
+    try:
+        if start_gps():
+            logger.info("GPS service started")
+        else:
+            logger.warning("GPS service failed to start")
+    except Exception:
+        logger.exception("Failed to initialize GPS service")
+    atexit.register(stop_gps)
+
     # 线程停止信号（所有模块共享）
     stop_event = threading.Event()
     rtsp_url = cfg.get("rtsp_url", "rtsp://your-rtsp-url")

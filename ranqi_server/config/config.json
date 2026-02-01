@@ -14,6 +14,10 @@
   "save_pic": true,
   "save_video": false,
   "listen_port": 9527,
+  "gps_port": "/dev/ttyUSB2",
+  "gps_baudrate": 115200,
+  "gps_timeout": 0.5,
+  "gps_max_reads": 100,
   "manager_base_url": "http://127.0.0.1:8001",
   "backend_base_url": "http://127.0.0.1:5000",
   "target_classes": [
