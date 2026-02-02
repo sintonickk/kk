@@ -158,6 +158,7 @@ def list_alarms_by_process_status(
     process_status: unprocessed, processing, closed, ignore
     """
     # prefer header user_code over query param
+    user_code: Optional[str] = None
     try:
         header_uc = getattr(getattr(request, "state", None), "auth", {}).get("user_code") if request else None
         if header_uc:

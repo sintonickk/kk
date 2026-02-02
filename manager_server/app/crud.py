@@ -1,5 +1,6 @@
 from typing import List, Optional
 import math
+import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, func
 from datetime import datetime
@@ -12,6 +13,27 @@ _whash = WHash()
 
 # password hashing context for users
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# module logger
+logger = logging.getLogger(__name__)
+
+def _commit(db: Session, op: str) -> None:
+    try:
+        db.commit()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        logger.exception("DB commit failed: %s", op)
+        raise
+
+def _execute(db: Session, stmt, op: str):
+    try:
+        return db.execute(stmt)
+    except Exception:
+        logger.exception("DB execute failed: %s", op)
+        raise
 
 def _hex_hamming_distance(h1: str, h2: str) -> int:
     """Compute Hamming distance using WHash; if it fails, fallback to bitwise hex comparison."""
@@ -51,7 +73,7 @@ def need_alarm(db: Session, alarm: schemas.AlarmCreate) -> bool:
         models.AlarmInfo.latitude,
         models.AlarmInfo.longitude,
     ).where(models.AlarmInfo.process_status == "ignore")
-    rows = db.execute(stmt).all()
+    rows = _execute(db, stmt, "need_alarm.select_ignore").all()
 
     for row in rows:
         img_hash_db, lat_db, lon_db = row
@@ -89,7 +111,7 @@ def create_alarm(db: Session, alarm: schemas.AlarmCreate, image_url: Optional[st
         simple_address=addr.get("simple_address"),
     )
     db.add(db_alarm)
-    db.commit()
+    _commit(db, "create_alarm.commit")
     db.refresh(db_alarm)
     return db_alarm
 
@@ -123,14 +145,14 @@ def query_alarms(
     if conditions:
         stmt = stmt.where(and_(*conditions))
     stmt = stmt.order_by(models.AlarmInfo.alarm_time.desc()).offset(skip).limit(limit)
-    return list(db.execute(stmt).scalars().all())
+    return list(_execute(db, stmt, "query_alarms").scalars().all())
 
 def query_alarms_by_process_status(db: Session, user_code: Optional[str], process_status: Optional[str], skip: int, limit: int) -> List[models.AlarmInfo]:
     stmt = select(models.AlarmInfo).where(models.AlarmInfo.process_status == process_status)
     if user_code:
         stmt = stmt.where(models.AlarmInfo.user_code == user_code)
     stmt = stmt.order_by(models.AlarmInfo.alarm_time.desc()).offset(skip).limit(limit)
-    return list(db.execute(stmt).scalars().all())
+    return list(_execute(db, stmt, "query_alarms_by_process_status").scalars().all())
 
 
 def update_alarm_process(db: Session, alarm_id: int, body: schemas.AlarmProcessUpdate, header_user_code: Optional[str] = None) -> Optional[models.AlarmInfo]:
@@ -148,7 +170,7 @@ def update_alarm_process(db: Session, alarm_id: int, body: schemas.AlarmProcessU
         elif header_user_code and not alarm.process_opinion_person:
             try:
                 stmt = select(models.User).where(models.User.user_code == header_user_code)
-                user = db.execute(stmt).scalars().first()
+                user = _execute(db, stmt, "update_alarm_process.fetch_user_by_code").scalars().first()
                 if user is not None:
                     alarm.process_opinion_person = int(getattr(user, "user_id"))
             except Exception:
@@ -161,7 +183,7 @@ def update_alarm_process(db: Session, alarm_id: int, body: schemas.AlarmProcessU
         elif header_user_code and not alarm.process_feedback_person:
             try:
                 stmt = select(models.User).where(models.User.user_code == header_user_code)
-                user = db.execute(stmt).scalars().first()
+                user = _execute(db, stmt, "update_alarm_process.fetch_user_by_code").scalars().first()
                 if user is not None:
                     alarm.process_feedback_person = int(getattr(user, "user_id"))
             except Exception:
@@ -170,28 +192,28 @@ def update_alarm_process(db: Session, alarm_id: int, body: schemas.AlarmProcessU
     if header_user_code:
         alarm.user_code = header_user_code
     db.add(alarm)
-    db.commit()
+    _commit(db, "update_alarm_process.commit")
     db.refresh(alarm)
     return alarm
 
 
 def query_device_id_by_ip(db: Session, device_ip: str) -> Optional[int]:
     stmt = select(models.Device.device_id).where(models.Device.device_ip == device_ip)
-    return db.execute(stmt).scalars().first()
+    return _execute(db, stmt, "query_device_id_by_ip").scalars().first()
 
 
 def upsert_config(db: Session, key: str, value: Optional[str]) -> models.ConfigKV:
     stmt = select(models.ConfigKV).where(models.ConfigKV.key == key)
-    existing = db.execute(stmt).scalars().first()
+    existing = _execute(db, stmt, "upsert_config.select").scalars().first()
     if existing:
         existing.value = value
         db.add(existing)
-        db.commit()
+        _commit(db, "upsert_config.update.commit")
         db.refresh(existing)
         return existing
     new_item = models.ConfigKV(key=key, value=value)
     db.add(new_item)
-    db.commit()
+    _commit(db, "upsert_config.insert.commit")
     db.refresh(new_item)
     return new_item
 
@@ -208,25 +230,25 @@ def stats_today_hourly(db: Session) -> list[tuple]:
         .group_by(hour_col)
         .order_by(hour_col.asc())
     )
-    rows = db.execute(stmt).all()
+    rows = _execute(db, stmt, "stats_today_hourly").all()
     return rows
 
 
 def get_config(db: Session, key: str) -> Optional[models.ConfigKV]:
     stmt = select(models.ConfigKV).where(models.ConfigKV.key == key)
-    return db.execute(stmt).scalars().first()
+    return _execute(db, stmt, "get_config").scalars().first()
 
 
 def list_configs(db: Session) -> List[models.ConfigKV]:
     stmt = select(models.ConfigKV).order_by(models.ConfigKV.key.asc())
-    return list(db.execute(stmt).scalars().all())
+    return list(_execute(db, stmt, "list_configs").scalars().all())
 
 
 def get_alarm_image_urls_by_ids(db: Session, ids: List[int]) -> List[str]:
     if not ids:
         return []
     stmt = select(models.AlarmInfo.image_url).where(models.AlarmInfo.alarm_id.in_(ids))
-    return [row[0] for row in db.execute(stmt).all() if row[0]]
+    return [row[0] for row in _execute(db, stmt, "get_alarm_image_urls_by_ids").all() if row[0]]
 
 
 def delete_alarms_by_ids(db: Session, ids: List[int]) -> int:
@@ -235,10 +257,10 @@ def delete_alarms_by_ids(db: Session, ids: List[int]) -> int:
     # Use ORM load then delete to respect session, or execute delete where in_
     # Simpler: load primary keys then delete individually
     stmt = select(models.AlarmInfo).where(models.AlarmInfo.alarm_id.in_(ids))
-    items = list(db.execute(stmt).scalars().all())
+    items = list(_execute(db, stmt, "delete_alarms_by_ids.select").scalars().all())
     for it in items:
         db.delete(it)
-    db.commit()
+    _commit(db, "delete_alarms_by_ids.commit")
     return len(items)
 
 
@@ -409,7 +431,7 @@ def generate_unique_user_code(db: Session, max_attempts: int = 10) -> str:
 # Device related CRUD and helpers
 def _device_code_exists(db: Session, code: str) -> bool:
     stmt = select(models.Device.device_id).where(models.Device.device_code == code)
-    return db.execute(stmt).first() is not None
+    return _execute(db, stmt, "_device_code_exists").first() is not None
 
 def create_device(db: Session, body: schemas.DeviceCreate) -> models.Device:
     # require external device_code and ensure uniqueness
@@ -428,7 +450,7 @@ def create_device(db: Session, body: schemas.DeviceCreate) -> models.Device:
         status=body.status or "offline",
     )
     db.add(item)
-    db.commit()
+    _commit(db, "create_device.commit")
     db.refresh(item)
     return item
 
@@ -439,17 +461,17 @@ def get_device(db: Session, device_id: int) -> Optional[models.Device]:
 
 def list_devices(db: Session) -> List[models.Device]:
     stmt = select(models.Device).order_by(models.Device.create_time.desc())
-    return list(db.execute(stmt).scalars().all())
+    return list(_execute(db, stmt, "list_devices").scalars().all())
 
 
 def get_device_by_ip(db: Session, device_ip: str) -> Optional[models.Device]:
     stmt = select(models.Device).where(models.Device.device_ip == device_ip)
-    return db.execute(stmt).scalars().first()
+    return _execute(db, stmt, "get_device_by_ip").scalars().first()
 
 
 def get_device_by_code(db: Session, device_code: str) -> Optional[models.Device]:
     stmt = select(models.Device).where(models.Device.device_code == device_code)
-    return db.execute(stmt).scalars().first()
+    return _execute(db, stmt, "get_device_by_code").scalars().first()
 
 
 def update_device(db: Session, device_id: int, body: schemas.DeviceUpdate) -> Optional[models.Device]:
@@ -471,7 +493,7 @@ def update_device(db: Session, device_id: int, body: schemas.DeviceUpdate) -> Op
     
     item.update_time = datetime.now()
     db.add(item)
-    db.commit()
+    _commit(db, "update_device.commit")
     db.refresh(item)
     return item
 
@@ -481,5 +503,5 @@ def delete_device(db: Session, device_id: int) -> bool:
     if not item:
         return False
     db.delete(item)
-    db.commit()
+    _commit(db, "delete_device.commit")
     return True

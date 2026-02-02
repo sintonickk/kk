@@ -100,7 +100,18 @@ def update_device_by_code(device_code: str, body: schemas.DeviceUpdate, db: Sess
     item = crud.get_device_by_code(db, device_code)
     if not item:
         logger.info("Device not found for update by code: %s, now create", device_code)
-        item = crud.create_device(db, body)
+        create = schemas.DeviceCreate(
+            device_code=device_code,
+            device_ip=body.device_ip,
+            rtsp_urls=body.rtsp_urls or [],
+            note=body.note or "",
+            device_config=body.device_config or {},
+            device_info=body.device_info or {},
+            status=body.status or "offline",
+        )
+        item = crud.create_device(db, create)
+        logger.info("Device created by code: code=%s id=%s", device_code, item.device_id)
+        return item
     try:
         updated = crud.update_device(db, item.device_id, body)
         logger.info("Device updated by code: code=%s id=%s", device_code, item.device_id)
