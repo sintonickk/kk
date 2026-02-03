@@ -171,7 +171,7 @@ def list_alarms_by_process_status(
     return items
 
 
-@router.get("", response_model=List[schemas.AlarmRead])
+@router.get("")
 def list_alarms(
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
@@ -183,6 +183,14 @@ def list_alarms(
     db: Session = Depends(get_db),
     request: Request = None,
 ):
+    """
+    List alarms with optional filters and pagination.
+    Returns { items, total }.
+
+    Notes:
+    - If process_status is not set, results exclude records with process_status == "auto_ignore".
+    - Pagination uses offset (skip) and limit (capped at 200).
+    """
     from datetime import datetime
 
     # prefer header user_code over query param
@@ -195,9 +203,11 @@ def list_alarms(
 
     st = datetime.fromisoformat(start_time) if start_time else None
     et = datetime.fromisoformat(end_time) if end_time else None
-    items = crud.query_alarms(db, st, et, alarm_type, process_status, user_code, skip, min(limit, 200))
-    logger.info("List alarms: count=%s process_status=%s type=%s", len(items), process_status, alarm_type)
-    return items
+    lim = min(limit, 200)
+    items = crud.query_alarms_filtered(db, st, et, alarm_type, process_status, user_code, skip, lim)
+    total = crud.count_alarms_filtered(db, st, et, alarm_type, process_status, user_code)
+    logger.info("List alarms: items=%s total=%s process_status=%s type=%s", len(items), total, process_status, alarm_type)
+    return {"items": items, "total": total}
 
 
 @router.get("/{alarm_id}", response_model=schemas.AlarmRead)

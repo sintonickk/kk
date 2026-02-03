@@ -155,6 +155,64 @@ def query_alarms_by_process_status(db: Session, user_code: Optional[str], proces
     return list(_execute(db, stmt, "query_alarms_by_process_status").scalars().all())
 
 
+def query_alarms_filtered(
+    db: Session,
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
+    alarm_type: Optional[str],
+    process_status: Optional[str],
+    user_code: Optional[str],
+    skip: int,
+    limit: int,
+) -> List[models.AlarmInfo]:
+    stmt = select(models.AlarmInfo)
+    conditions = []
+    if start_time:
+        conditions.append(models.AlarmInfo.alarm_time >= start_time)
+    if end_time:
+        conditions.append(models.AlarmInfo.alarm_time <= end_time)
+    if alarm_type:
+        conditions.append(models.AlarmInfo.alarm_type == alarm_type)
+    if process_status:
+        conditions.append(models.AlarmInfo.process_status == process_status)
+    else:
+        # 未指定 process_status 时，排除 auto_ignore
+        conditions.append(models.AlarmInfo.process_status != "auto_ignore")
+    if user_code:
+        conditions.append(models.AlarmInfo.user_code == user_code)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    stmt = stmt.order_by(models.AlarmInfo.alarm_time.desc()).offset(skip).limit(limit)
+    return list(_execute(db, stmt, "query_alarms_filtered").scalars().all())
+
+
+def count_alarms_filtered(
+    db: Session,
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
+    alarm_type: Optional[str],
+    process_status: Optional[str],
+    user_code: Optional[str],
+) -> int:
+    stmt = select(func.count()).select_from(models.AlarmInfo)
+    conditions = []
+    if start_time:
+        conditions.append(models.AlarmInfo.alarm_time >= start_time)
+    if end_time:
+        conditions.append(models.AlarmInfo.alarm_time <= end_time)
+    if alarm_type:
+        conditions.append(models.AlarmInfo.alarm_type == alarm_type)
+    if process_status:
+        conditions.append(models.AlarmInfo.process_status == process_status)
+    else:
+        conditions.append(models.AlarmInfo.process_status != "auto_ignore")
+    if user_code:
+        conditions.append(models.AlarmInfo.user_code == user_code)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    return int(_execute(db, stmt, "count_alarms_filtered").scalar() or 0)
+
+
 def update_alarm_process(db: Session, alarm_id: int, body: schemas.AlarmProcessUpdate, header_user_code: Optional[str] = None) -> Optional[models.AlarmInfo]:
     alarm = db.get(models.AlarmInfo, alarm_id)
     if not alarm:
