@@ -48,6 +48,10 @@ class Settings:
         self.server_port = int(server.get("port", 8001))
         self.device_listen_port = int(server.get("device_listen_port", 9000))
         self.device_refresh_time = int(server.get("device_refresh_time", 180))
+        # thresholds and retention
+        self.image_hash_distance = int(server.get("image_hash_distance", 18))
+        self.gps_distance = float(server.get("gps_distance", 50))
+        self.ignore_days = int(server.get("ignore_days", 0))
         # JWT secret for HS256
         self.jwt_secret = server.get("jwt_secret", "CHANGE_ME_SECRET")
         self.save_path = server.get("save_path", "./uploads")
@@ -64,9 +68,7 @@ class Settings:
                 self.routes_file = routes_file
         else:
             self.routes_file = None
-        # logging
-        self.log_dir = server.get("log_dir", "./logs")
-        self.log_level = str(server.get("log_level", "INFO")).upper()
+        # logging settings are not defined in config.yaml; remove extras to keep consistent
 
         # compute absolute upload directory
         if os.path.isabs(self.save_path):

@@ -62,8 +62,12 @@ def need_alarm(db: Session, alarm: schemas.AlarmCreate) -> bool:
     两者都满足则返回 True（视为相似）。否则返回 False。
     """
     settings = get_settings()
-    hash_thr = int(getattr(settings, "image_hash_distance", 18))
-    gps_thr = float(getattr(settings, "gps_distance", 50))
+    hash_thr = int(getattr(settings, "image_hash_distance", 15))
+    gps_thr = float(getattr(settings, "gps_distance", 48))
+    try:
+        _ignore_days = int(getattr(settings, "ignore_days", 0))
+    except Exception:
+        _ignore_days = 0
 
     if not alarm.image_hash:
         return False
@@ -73,6 +77,13 @@ def need_alarm(db: Session, alarm: schemas.AlarmCreate) -> bool:
         models.AlarmInfo.latitude,
         models.AlarmInfo.longitude,
     ).where(models.AlarmInfo.process_status == "ignore")
+    if _ignore_days and _ignore_days > 0:
+        try:
+            from datetime import timedelta
+            cutoff = datetime.now() - timedelta(days=_ignore_days)
+            stmt = stmt.where(models.AlarmInfo.alarm_time >= cutoff)
+        except Exception:
+            pass
     rows = _execute(db, stmt, "need_alarm.select_ignore").all()
 
     for row in rows:
