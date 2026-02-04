@@ -1,0 +1,1 @@
+schtasks /Create /TN "WatchdogManagerServer" /SC ONLOGON /RL HIGHEST /TR ""d:\kk\code\kk\app_watch\start_watchdog_manager.bat"" /F
