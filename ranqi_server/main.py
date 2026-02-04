@@ -39,6 +39,23 @@ def main():
     except Exception:
         logger.warning("上报设备信息失败，继续启动其他模块")
 
+    def device_report_loop():
+        while not stop_event.is_set():
+            try:
+                report_interval = int(cfg.get("update_device_info_time", 60))
+                update_device_by_code_startup()
+            except Exception:
+                logger.warning(f"上报设备信息失败，{report_interval}秒后重试.")
+                pass
+            if stop_event.wait(report_interval):
+                break
+
+    try:
+        device_report_thread = threading.Thread(target=device_report_loop, daemon=True)
+        device_report_thread.start()
+    except Exception:
+        pass
+
     # 启动RTSP流处理线程
     rtsp_thread = threading.Thread( 
         target=rtsp_processor,

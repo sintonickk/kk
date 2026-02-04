@@ -2,6 +2,7 @@
   "__comments": {
     "rtsp_url": "摄像流 RTSP 地址，建议使用 rtsp_transport=tcp 并设置超时 stimeout（微秒）",
     "fps": "抽帧帧率（每秒处理的帧数），值越大负载越高",
+    "update_device_info_time": "更新设备信息的心跳时间间隔，单位(秒)",
     "frame_queue_size": "帧队列最大长度，防止积压导致内存占用过大",
     "alarm_queue_size": "告警队列最大长度",
     "conf_threshold": "模型置信度阈值（0~1），高于该值判为命中",
@@ -31,6 +32,7 @@
   },
   "rtsp_url": "rtsp://127.0.0.1:8554/test?rtsp_transport=tcp&stimeout=30000000",
   "fps": 2,
+  "update_device_info_time": 300,
   "frame_queue_size": 100,
   "alarm_queue_size": 200,
   "conf_threshold": 0.8,
