@@ -23,10 +23,6 @@ CREATE TABLE t_alarm_info (
     create_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
-    -- 外键约束（需确保t_device表已创建）
-    CONSTRAINT fk_alarm_device FOREIGN KEY (device_ip) REFERENCES t_device (device_ip) 
-        ON DELETE RESTRICT
-        ON UPDATE CASCADE,
     CONSTRAINT fk_alarm_user FOREIGN KEY (user_code) REFERENCES t_user (user_code)
     ON DELETE SET NULL  -- 用户表记录删除时，报警表的user_code设为NULL（避免数据丢失）
     ON UPDATE CASCADE   -- 用户ID更新时，报警表同步更新
